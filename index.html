@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kingchat2.0-demo</title>
+    <link href="./main.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div class="main">
+        
+        <div class="roleBox">
+            房间号:<input type="input" value="123456" id="roomid">
+            <button id="gum">打开摄像头</button>
+            <br><br>
+            <button id="makeCall">开始视频</button>
+            <button id="hangup" disabled>结束视频</button>
+            <button id="shareDesktop" disabled>分享桌面</button>
+            <button id="mixDesktop" disabled>分享和摄像头</button>
+            <button id="shareMp3" disabled>播报语音</button>
+
+            <br><br>
+            <button id="recordServer" disabled>服务器录制</button>
+            <button id="downloadServer" disabled>下载</button>
+            <br><br>
+            <button id="recordLocal" disabled>本地录制</button>
+            <button id="downloadLocal" disabled>下载</button>
+            <br><br>
+        </div>
+
+        <div class="video-box">
+            <div>
+                <h2>本地视频</h2>
+                <!-- <video id="localVideo" autoplay playsinline muted></video> -->
+                <video id="localVideo" autoplay playsinline muted></video> 
+            </div>
+
+            <div>
+                <h2>远端视频</h2>
+                <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+        </div>
+
+        <div class="media-preview">
+            <div class="mixed">
+                <h2>合成视频</h2>
+                <video id="mixedVideo" autoplay playsinline></video>
+            </div>
+
+            <div>
+                <h2>Chat</h2>
+                <p><textarea id="recvMsg" disabled></textarea></p>
+                <!-- <p><textarea id="inputMsg" disabled></textarea></p> -->
+                <!-- <button id="sendMsg" disabled>Send</button> -->
+                <p><textarea id="inputMsg"></textarea></p>
+                <button id="sendMsg">Send</button>
+            </div>
+        </div>
+    </div>
+    <script src="./kingwebrtc.js"></script>
+    <script src="./main.js"></script>
+    <script src="./recordLocal.js"></script>
+    <script src="./recordServer.js"></script>
+    <script src="./shareMp3.js"></script>
+    <script src="./gum.js"></script>
+    
+    <script>
+        function bb(obj) {
+            console.log(obj);
+        }
+    </script>
+</body>
+
+</html>
