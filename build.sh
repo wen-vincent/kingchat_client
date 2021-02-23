@@ -14,6 +14,7 @@ function build() {
     # ln -s ../src/shareMp3.js dist/ -f
     ln -s ../index.html dist/ -f
     ln -s ../main.css dist/ -f
+    ln -s ../src/adapter.min.js dist/ -f
 }
 
 function updateToServer() {
