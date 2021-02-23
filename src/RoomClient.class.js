@@ -4,6 +4,7 @@ import deviceInfo from './deviceInfo';
 import MultiStreamsMixer from 'multistreamsmixer';
 import Logger from './Logger';
 import randomString from 'random-string';
+import { gum, gud, normalVideoRenderHandler } from './gum';
 
 const VIDEO_CONSTRAINS =
 {
@@ -234,6 +235,36 @@ export class RoomClient {
 
 		this.disableMic();
 		this.disableWebcam();
+	}
+
+	async getMediaDevices() {
+		let devices;
+		console.log("getMediaDevices");
+		try {
+			devices = await gud();
+		} catch (error) {
+			logger.error(error);
+		}
+	}
+
+	async getLocalStream() {
+		console.log("getLocalStream");
+		let stream;
+		try {
+			const constraints = makeConstraints();
+			console.log("gum::GUM::constraints is %o", constraints);
+
+			stream = await gum(constraints);
+		} catch (err) {
+			console.error(err);
+			stream = await gum(DEFAULT_CONSTRAINTS);
+		}
+
+		// let st = stream.getVideoTracks()[0].getSettings();
+		// console.log(st.width,st.height);
+		// normalVideoRenderHandler(stream, 'Someone');
+
+		// videoLocal.srcObject = stream;
 	}
 
 	async startRecord() {
@@ -508,8 +539,8 @@ export class RoomClient {
 					{
 						const peer = notification.data;
 						this.handlerActionCallback({
-							action:'other-connected',
-							info:JSON.stringify(peer)
+							action: 'other-connected',
+							info: JSON.stringify(peer)
 						});
 						break;
 					}
@@ -518,8 +549,8 @@ export class RoomClient {
 					{
 						const { peerId } = notification.data;
 						this.handlerActionCallback({
-							action:'other-disconnect',
-							info:peerId
+							action: 'other-disconnect',
+							info: peerId
 						});
 						break;
 					}
@@ -680,12 +711,12 @@ export class RoomClient {
 		}
 	}
 
-	async enableShareMp3(trackMp3,duration) {
-		logger.debug('enableMp3 , duration is ',duration);
+	async enableShareMp3(trackMp3, duration) {
+		logger.debug('enableMp3 , duration is ', duration);
 
 		// if (this._micProducer) 
 		// 	return;
-		
+
 		if (!this._micProducer) {
 			console.error('mic disabled');
 			return;
@@ -836,7 +867,7 @@ export class RoomClient {
 			track = stream.getVideoTracks()[0];
 			stream.width = 500;
 			stream.height = 500;
-			normalVideoRenderHandler(stream,["your stream1","your stream2"]);
+			normalVideoRenderHandler(stream, ["your stream1", "your stream2"]);
 			let mixedLocal = new MultiStreamsMixer([stream]);
 			mixedLocal.frameInterval = 100;
 

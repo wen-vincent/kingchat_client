@@ -37,6 +37,45 @@ const showStreamRatio = (stream) => {
     console.log("stream width height is: ", width, height);
 }
 
+const getMediaDevices = async (kind) => {
+    let devices;
+    try {
+        devices = await gud();
+    } catch (error) {
+        console.error(error);
+    }
+    return devices;
+}
+
+const getLocalStream = async () => {
+    let devices = await getMediaDevices();
+    devices.forEach(element => {
+        console.log(element);
+    });
+
+    let kind = "videoinput";
+    let deviceId ;
+
+    devices.forEach( (device) => {
+        if(device.kind.toLowerCase() == kind) {
+            console.log(device.deviceId,device);
+            deviceId = device.deviceId;
+        }
+    });
+
+    let stream;
+    try {
+        console.log("deviceId",deviceId);
+        const constraints = makeConstraints(g_videoWidth,g_videoHeight,deviceId);
+        stream = await gum(constraints);
+    } catch (err) {
+        console.error(err);
+        stream = await gum(DEFAULT_CONSTRAINTS); // 使用默认值
+    }
+
+    return stream;
+}
+
 // 回调事件
 const handlerLStreamCallback = (localStream) => {
     localstream = localStream;
@@ -102,10 +141,13 @@ const handlerActionCallback = (msg) => { // 对方连接断开指令
 
 // 按钮事件
 btnMakeCall.onclick = async () => {
+    localstream = await getLocalStream();
+    videoLocal.srcObject = localstream;
+    return;
     // btnMakeCall.disabled = true;
     // btnHangup.disabled = false;
     let storeCallback = new Object();
-    storeCallback.handlerLStreamCallback = handlerLStreamCallback;
+    // storeCallback.handlerLStreamCallback = handlerLStreamCallback;
     storeCallback.handlerRStreamCallback = handlerRStreamCallback;
     storeCallback.handlerChatDataCallback = handlerChatDataCallback;
     storeCallback.handlerSuccessfulCallback = handlerSuccessfulCallback;

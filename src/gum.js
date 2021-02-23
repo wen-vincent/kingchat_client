@@ -1,4 +1,4 @@
-const btnGum = document.getElementById('gum');
+// const btnGum = document.getElementById('gum');
 // const btnShareDesktop = document.getElementById('shareDesktop');
 
 const DEFAULT_CONSTRAINTS = Object.freeze({
@@ -11,7 +11,7 @@ const DEFAULT_CONSTRAINTS = Object.freeze({
     }
 });
 
-const makeConstraints = () => {
+const makeConstraints = (width,height,deviceId) => {
     let constraints = {};
     let audio = {};
     let video = {};
@@ -34,18 +34,19 @@ const makeConstraints = () => {
         // add video constraints
         // idea 会匹配最佳分辨率
         if (supportedConstraints.width) { // 部分机型width,height为true任然不能设值
-            video.width = { ideal: 640}; // 2k 2580
-            // video.width = 1000;
+            video.width = { ideal: width}; // 2k 2580
         }
         if (supportedConstraints.height) {
-            video.height = { ideal: 480}; // 2k 1920
-            // video.height = 300;
+            video.height = { ideal: height}; // 2k 1920
         }
         if (supportedConstraints.facingMode) {
             video.facingMode = { ideal: 'user' }; // 前置/后置摄像头 user/environment
         }
         if (supportedConstraints.frameRate) {
             video.frameRate = 20; // 帧率
+        }
+        if (supportedConstraints.deviceId) {
+            video.deviceId = deviceId ? {exact:deviceId} : undefined
         }
     }
     constraints.audio = audio;
@@ -63,7 +64,17 @@ const gum = async (constraints) => {
     });
 };
 
-function normalVideoRenderHandler (stream, textToDisplay, callback) {
+const gud = async () => {
+    return new Promise(function (d, j) {
+        navigator.mediaDevices.enumerateDevices().then(function (devices) {
+            d(devices);
+        }).catch(function (err) {
+            j(err);
+        })
+    });
+};
+
+const normalVideoRenderHandler =  (stream, textToDisplay, callback) => {
     // on-video-render:
     // called as soon as this video stream is drawn (painted or recorded) on canvas2d surface
     stream.onRender = function(context, x, y, width, height, idx, ignoreCB) {
@@ -86,23 +97,4 @@ function normalVideoRenderHandler (stream, textToDisplay, callback) {
             context.fillText(item, x, y+index*30);
         });
     }
-}
-
-btnGum.onclick = async () => {
-    let stream;
-    try {
-        const constraints = makeConstraints();
-        console.log("gum::GUM::constraints is %o", constraints);
-        
-        stream = await gum(constraints);
-    } catch (err) {
-        console.error(err);
-        stream = await gum(DEFAULT_CONSTRAINTS);
-    }
-
-    // let st = stream.getVideoTracks()[0].getSettings();
-    // console.log(st.width,st.height);
-    // normalVideoRenderHandler(stream, 'Someone');
-
-    videoLocal.srcObject = stream;
 }
