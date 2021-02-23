@@ -61,6 +61,7 @@ export class RoomClient {
 			roomId,
 			videoWidth,
 			videoHeight,
+			localStream,
 			displayName,
 			handlerName,
 			useSimulcast,
@@ -197,10 +198,9 @@ export class RoomClient {
 		};
 		this.videoWidth = videoWidth;
 		this.videoHeight = videoHeight;
-		this.localStream = null;
+		this.localStream = localStream;
 		this.remoteStream = null;
 		this.mixer = null;
-		this.getLocalStream = storeCallback.handlerLStreamCallback;
 		this.getRemoteStream = storeCallback.handlerRStreamCallback;
 		this.errorCallback = storeCallback.handlerErrorCallback;
 		this.onChatData = storeCallback.handlerChatDataCallback;
@@ -235,36 +235,6 @@ export class RoomClient {
 
 		this.disableMic();
 		this.disableWebcam();
-	}
-
-	async getMediaDevices() {
-		let devices;
-		console.log("getMediaDevices");
-		try {
-			devices = await gud();
-		} catch (error) {
-			logger.error(error);
-		}
-	}
-
-	async getLocalStream() {
-		console.log("getLocalStream");
-		let stream;
-		try {
-			const constraints = makeConstraints();
-			console.log("gum::GUM::constraints is %o", constraints);
-
-			stream = await gum(constraints);
-		} catch (err) {
-			console.error(err);
-			stream = await gum(DEFAULT_CONSTRAINTS);
-		}
-
-		// let st = stream.getVideoTracks()[0].getSettings();
-		// console.log(st.width,st.height);
-		// normalVideoRenderHandler(stream, 'Someone');
-
-		// videoLocal.srcObject = stream;
 	}
 
 	async startRecord() {
@@ -672,10 +642,8 @@ export class RoomClient {
 
 		try {
 			logger.debug('enableMic() | calling getUserMedia()');
-			let cons = this.makeAudioConstraints();
-			const stream = await navigator.mediaDevices.getUserMedia(cons);
 
-			track = stream.getAudioTracks()[0];
+			track = this.localStream.getAudioTracks()[0];
 			if (!this.localStream)
 				this.localStream = new MediaStream();
 			this.localStream.addTrack(track);
@@ -732,17 +700,15 @@ export class RoomClient {
 		try {
 			logger.debug('enableMic() | calling getUserMedia()');
 			let cons = this.makeAudioConstraints();
-			const stream = await navigator.mediaDevices.getUserMedia(cons);
+			const stream = new MediaStream();
 
-			// track = stream.getAudioTracks()[0];
-			if (!this.localStream)
-				this.localStream = new MediaStream();
+			stream.addTrack(this.localStream.getAudioTracks()[0]);
 
 			var mp3Mixer = new MultiStreamsMixer([stream, trackMp3]);
 			let mp3Stream = mp3Mixer.getMixedStream();
 			track = mp3Stream.getAudioTracks()[0];
 			this.localStream.addTrack(mp3Stream.getAudioTracks()[0]);
-			this.getLocalStream(localstream);
+			this.getLocalStream(localStream);
 
 			this._micProducer = await this._sendTransport.produce(
 				{
@@ -855,30 +821,7 @@ export class RoomClient {
 
 			logger.debug('enableWebcam() | calling getUserMedia()');
 
-			let stream;
-			let cons = this.makeVideoConstraints();
-			try {
-				stream = await navigator.mediaDevices.getUserMedia(cons);
-			}
-			catch (err) {
-				stream = await navigator.mediaDevices.getUserMedia();
-			}
-
-			track = stream.getVideoTracks()[0];
-			stream.width = 500;
-			stream.height = 500;
-			normalVideoRenderHandler(stream, ["your stream1", "your stream2"]);
-			let mixedLocal = new MultiStreamsMixer([stream]);
-			mixedLocal.frameInterval = 100;
-
-			mixedLocal.startDrawingFrames();
-			//保存本地的MediaStream
-			if (!this.localStream) this.localStream = new MediaStream();
-
-			this.localStream = mixedLocal.getMixedStream();
-			// this.localStream.addTrack(track);
-			console.log(this.localStream.getTracks());
-			this.getLocalStream(this.localStream);
+			track = localStream.getVideoTracks()[0];
 
 			let encodings;
 			let codec;
@@ -1102,7 +1045,6 @@ export class RoomClient {
 				return;
 			}
 
-			this.getLocalStream(stream);
 			track = stream.getVideoTracks()[0];
 
 			let encodings;
@@ -2012,7 +1954,6 @@ export class RoomClient {
 				await this.enableMic();
 				await this.enableWebcam();
 
-				this.getLocalStream(this.localStream);
 				await this.enableChatDataProducer();
 
 				this._sendTransport.on('connectionstatechange', (connectionState) => {

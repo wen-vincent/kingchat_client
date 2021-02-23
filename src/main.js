@@ -1,7 +1,7 @@
 var roomClient = null; // 双向视频接口
 var recordClient = null; // 录制视频接口
-var localstream = null;  // 自己的视频流
-var remotestream = null; // 对端的视频流
+var localStream = null;  // 自己的视频流
+var remoteStream = null; // 对端的视频流
 
 // 按钮
 const btnMakeCall = document.getElementById('makeCall');
@@ -37,7 +37,7 @@ const showStreamRatio = (stream) => {
     console.log("stream width height is: ", width, height);
 }
 
-const getMediaDevices = async (kind) => {
+const getMediaDevices = async () => {
     let devices;
     try {
         devices = await gud();
@@ -59,13 +59,12 @@ const getLocalStream = async () => {
     devices.forEach( (device) => {
         if(device.kind.toLowerCase() == kind) {
             console.log(device.deviceId,device);
-            deviceId = device.deviceId;
+            deviceId = device.deviceId; // 指定摄像头
         }
     });
 
     let stream;
     try {
-        console.log("deviceId",deviceId);
         const constraints = makeConstraints(g_videoWidth,g_videoHeight,deviceId);
         stream = await gum(constraints);
     } catch (err) {
@@ -76,23 +75,23 @@ const getLocalStream = async () => {
     return stream;
 }
 
-// 回调事件
-const handlerLStreamCallback = (localStream) => {
-    localstream = localStream;
-    videoLocal.srcObject = localStream;
+// // 回调事件
+// const handlerLStreamCallback = (localStream) => {
+//     localStream = localStream;
+//     videoLocal.srcObject = localStream;
 
-    btnMakeCall.disabled = true;
-    btnHangup.disabled = false;
-    btnShareDesktop.disabled = false;
-    btnMixDesktop.disabled = false;
-    btnShareMp3.disabled = false;
+//     btnMakeCall.disabled = true;
+//     btnHangup.disabled = false;
+//     btnShareDesktop.disabled = false;
+//     btnMixDesktop.disabled = false;
+//     btnShareMp3.disabled = false;
 
-    console.log('get localstream');
-    showStreamRatio(localstream);
-}
+//     console.log('get localstream');
+//     showStreamRatio(localStream);
+// }
 
 const handlerRStreamCallback = (remoteStream) => {
-    remotestream = remoteStream;
+    remoteStream = remoteStream;
     videoRemote.srcObject = remoteStream;
 
     btnHangup.disabled = false;
@@ -141,9 +140,9 @@ const handlerActionCallback = (msg) => { // 对方连接断开指令
 
 // 按钮事件
 btnMakeCall.onclick = async () => {
-    localstream = await getLocalStream();
-    videoLocal.srcObject = localstream;
-    return;
+    localStream = await getLocalStream();
+    videoLocal.srcObject = localStream;
+
     // btnMakeCall.disabled = true;
     // btnHangup.disabled = false;
     let storeCallback = new Object();
@@ -157,12 +156,14 @@ btnMakeCall.onclick = async () => {
         roomClient.close();
         roomClient = null;
     }
+
     let roomId = document.getElementById('roomid').value;
     roomClient = new kingchat.RoomClient({
         roomId: roomId,
         displayName: g_roomName,
-        videoWidth: g_videoWidth,
-        videoHeight: g_videoHeight,
+        // videoWidth: g_videoWidth,
+        // videoHeight: g_videoHeight,
+        localStream: localStream,
         protooUrl: g_protooUrl,
         useSimulcast: false,
         useSharingSimulcast: false,
