@@ -1,3 +1,5 @@
+import RoomClient from './RoomClient.class'
+
 var roomClient = null; // 双向视频接口
 var recordClient = null; // 录制视频接口
 var localStream = null;  // 自己的视频流
