@@ -12,7 +12,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@babel/polyfill": "^7.12.1",
     "adapterjs": "^0.15.5",
     "detectrtc": "^1.4.1",
     "mediasoup-client": "^3.3.12",
@@ -20,11 +19,6 @@
     "random-string": "^0.2.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.13.0",
-    "@babel/core": "^7.13.1",
-    "@babel/plugin-transform-arrow-functions": "^7.13.0",
-    "@babel/preset-env": "^7.13.0",
-    "babel-loader": "^8.2.2",
     "multistreamsmixer": "^1.2.2",
     "webpack": "^4.43.0",
     "webpack-cli": "^3.3.12",
