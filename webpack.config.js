@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-  entry: './src/main.js',
+  entry: './src/RoomClient.class.js',
   mode: process.env.NODE_ENV || 'development',
   output: {
     filename: 'kingwebrtc.js',

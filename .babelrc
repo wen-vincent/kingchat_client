@@ -4,5 +4,6 @@
     ],
     "plugins": [
         "@babel/plugin-transform-runtime"
-    ]
+    ],
+    "compact": false
 }
