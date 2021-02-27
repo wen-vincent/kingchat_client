@@ -1,9 +1,13 @@
 {
     "presets": [
-        "@babel/preset-env"
+        ["@babel/preset-env",
+        {
+            "debug": true,
+            "useBuiltIns": "usage"
+        }]
     ],
     "plugins": [
         "@babel/plugin-transform-runtime"
     ],
-    "compact": false
+    "compact": false //500k 限制
 }

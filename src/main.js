@@ -1,5 +1,8 @@
+// import('@babel/polyfill')
 const btnGum = document.getElementById('gum');
 const localVideo = document.getElementById('localVideo');
+
+import protooClient from 'protoo-client'; 
 // const btnShareDesktop = document.getElementById('shareDesktop');
 
 const DEFAULT_CONSTRAINTS = Object.freeze({
