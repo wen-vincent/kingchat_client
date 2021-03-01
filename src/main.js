@@ -1,4 +1,4 @@
-// import('@babel/polyfill')
+// import('@babel/polyfill');
 const btnGum = document.getElementById('gum');
 const localVideo = document.getElementById('localVideo');
 
@@ -14,7 +14,6 @@ const DEFAULT_CONSTRAINTS = Object.freeze({
         frameRate: 20
     }
 });
-
 
 const gum = async (constraints) => {
     return new Promise(function (s, j) {
