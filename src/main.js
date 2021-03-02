@@ -1,10 +1,5 @@
 // require("babel-core/register");
-require("@babel/polyfill");
-
-// import adapter from 'webrtc-adapter';
-// const adapter = require('webrtc-adapter');
-// console.log(adapter.browserDetails.browser);
-// console.log(adapter.browserDetails.version);
+// require("@babel/polyfill");
 
 const btnGum = document.getElementById('gum');
 const localVideo = document.getElementById('localVideo');

@@ -15,9 +15,31 @@ module.exports = {
 	devServer: {
 		disableHostCheck: true
 	},
+	module: {
+		rules: [
+			{
+				test: /\.js$/,
+				exclude: function (modulePath) {
+					return false;
+					return (
+						/node_modules/.test(modulePath)
+						&& !/protoo-client/.test(modulePath)
+						&& !/debug/.test(modulePath)
+						&& !/mediasoup-client/.test(modulePath)
+					);
+				},
+				loader: 'babel-loader'
+			}
+		]
+	}
 	// module: {
-	// 	rules: [
-	// 		{ test: /\.js$/, exclude: /node_modules/, loader: "babel-loader" }
-	// 	]
+	//   rules: [
+	//     {
+	//       loader: "babel-loader",
+	//       options: {
+	//         rootMode: "upward",
+	//       },
+	//     },
+	//   ]
 	// }
 };
