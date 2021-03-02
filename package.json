@@ -22,6 +22,7 @@
     "@babel/cli": "^7.13.0",
     "@babel/core": "^7.13.8",
     "@babel/plugin-transform-runtime": "^7.13.8",
+    "@babel/polyfill": "^7.12.1",
     "@babel/preset-env": "^7.13.8",
     "babel-loader": "^8.2.2",
     "multistreamsmixer": "^1.2.2",

@@ -3,7 +3,13 @@ module.exports = function (api) {
 
     const presets = [
         ["@babel/env", {
-            "modules": "commonjs"
+            "modules": "commonjs",
+            "targets": {
+                "edge": "17",
+                "firefox": "60",
+                "chrome": "43",
+                "safari": "11.1"
+              },
         }]
     ];
     // const plugins = [
