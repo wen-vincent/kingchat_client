@@ -59,7 +59,7 @@ const getLocalStream = async () => {
     devices.forEach( (device) => {
         if(device.kind.toLowerCase() == kind) {
             console.log(device.deviceId,device);
-            deviceId = device.deviceId; // 指定摄像头
+            // deviceId = device.deviceId; // 指定摄像头
         }
     });
 
@@ -226,5 +226,25 @@ btnShareMp3.onclick = async () => {
     getMp3Stream((track, duration) => {
         roomClient.disableMic();
         roomClient.enableShareMp3(track, duration);
+    });
+}
+
+
+document.getElementById('recordtest').onclick = async () => {
+    console.log('recordtest');
+    roomClient.startRecord();
+}
+
+document.getElementById('recordteststop').onclick = async () => {
+    console.log('recordtest');
+    roomClient.stopRecord( (res) => {
+        console.log(res.fileName);
+        const getFileName = 'https://pretke.kingwelan.com/file_service/record/'+ res.fileName;
+
+        // videoMixed.src = window.URL.createObjectURL(getFileName);
+        videoMixed.srcObject = null;
+        videoMixed.src = getFileName;
+        videoMixed.controls = true;
+        videoMixed.play();
     });
 }
