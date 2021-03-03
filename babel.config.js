@@ -5,10 +5,10 @@ module.exports = function (api) {
         ["@babel/env", {
             "modules": "commonjs",
             "targets": {
-                "edge": "17",
-                "firefox": "60",
-                "chrome": "43",
-                "safari": "11.1"
+                // "edge": "17",
+                // "firefox": "60",
+                "chrome": "43"
+                // "safari": "11.1"
               },
         }]
     ];

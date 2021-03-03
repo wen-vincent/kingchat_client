@@ -53,12 +53,11 @@ const getLocalStream = async () => {
         console.log(element);
     });
 
-    let kind = "videoinput";
     let deviceId ;
 
     devices.forEach( (device) => {
-        if(device.kind.toLowerCase() == kind) {
-            console.log(device.deviceId,device);
+        if(device.kind.toLowerCase() == "videoinput") {
+            console.log(device);
             deviceId = device.deviceId; // 指定摄像头
         }
     });
@@ -161,8 +160,6 @@ btnMakeCall.onclick = async () => {
     roomClient = new kingchat.RoomClient({
         roomId: roomId,
         displayName: g_roomName,
-        // videoWidth: g_videoWidth,
-        // videoHeight: g_videoHeight,
         localStream: localStream,
         protooUrl: g_protooUrl,
         useSimulcast: false,
