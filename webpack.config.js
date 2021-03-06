@@ -1,8 +1,8 @@
 const path = require('path');
 
 module.exports = {
-	// entry: './src/RoomClient.class.js',
-	entry: './lib/all.js',
+	entry: './src/roomClient.js',
+	// entry: './lib/all.js',
 	mode: process.env.NODE_ENV || 'development',
 	output: {
 		filename: 'kingwebrtc.js',
@@ -15,31 +15,21 @@ module.exports = {
 	devServer: {
 		disableHostCheck: true
 	},
-	module: {
-		rules: [
-			{
-				test: /\.js$/,
-				exclude: function (modulePath) {
-					return false;
-					return (
-						/node_modules/.test(modulePath)
-						&& !/protoo-client/.test(modulePath)
-						&& !/debug/.test(modulePath)
-						&& !/mediasoup-client/.test(modulePath)
-					);
-				},
-				loader: 'babel-loader'
-			}
-		]
-	}
 	// module: {
-	//   rules: [
-	//     {
-	//       loader: "babel-loader",
-	//       options: {
-	//         rootMode: "upward",
-	//       },
-	//     },
-	//   ]
+	// 	rules: [
+	// 		{
+	// 			test: /\.js$/,
+	// 			exclude: function (modulePath) {
+	// 				return false;
+	// 				return (
+	// 					/node_modules/.test(modulePath)
+	// 					&& !/protoo-client/.test(modulePath)
+	// 					&& !/debug/.test(modulePath)
+	// 					&& !/mediasoup-client/.test(modulePath)
+	// 				);
+	// 			},
+	// 			loader: 'babel-loader'
+	// 		}
+	// 	]
 	// }
 };

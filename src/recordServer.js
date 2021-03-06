@@ -4,16 +4,13 @@ function startRecordServer(){
     const mixedStream = roomClient.getMixedStream();
     // videoMixed.srcObject = mixedStream;
 
-    console.log(localstream.getVideoTracks()[0].getSettings());
-    console.log(remotestream.getVideoTracks()[0].getSettings());
-    console.log(mixedStream.getVideoTracks()[0].getSettings());
+    // console.log(localStream.getVideoTracks()[0].getSettings());
+    // console.log(remoteStream.getVideoTracks()[0].getSettings());
+    // console.log(mixedStream.getVideoTracks()[0].getSettings());
 
     const roomId = '12345678';
     const roomName = 'record';
     let storeCallback = new Object();
-    storeCallback.handlerLStreamCallback = handlerLStreamCallback;
-    storeCallback.handlerRStreamCallback = handlerRStreamCallback;
-    storeCallback.handlerChatDataCallback = handlerChatDataCallback;
     storeCallback.handlerSuccessfulCallback = handlerSuccessfulCallback;
     storeCallback.handlerActionCallback = handlerActionCallback;
     recordClient = new kingchat.RoomClient({
@@ -52,5 +49,17 @@ btnRecordServer.onclick = async () => {
     else {
         btnRecordServer.textContent = '服务器录制';
         stopRecordServer()
+    }
+}
+
+const btnRecordServerSingle = document.getElementById('recordServerSingle');
+btnRecordServerSingle.onclick = ()=> {
+    if (btnRecordServerSingle.textContent === '服务器录制单向') {
+        roomClient.startRecord();
+        btnRecordServerSingle.textContent = '结束';
+    }
+    else {
+        roomClient.stopRecord();
+        btnRecordServerSingle.textContent = '服务器录制单向';
     }
 }

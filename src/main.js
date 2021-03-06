@@ -7,9 +7,6 @@ var remoteStream = null; // 对端的视频流
 const btnMakeCall = document.getElementById('makeCall');
 const btnHangup = document.getElementById('hangup');
 const btnSendMsg = document.getElementById('sendMsg');
-{/* <button id="shareDesktop" disabled>分享桌面</button>
-<button id="mixDesktop" disabled>分享和摄像头</button>
-<button id="shareMp3" disabled>播报语音</button> */}
 const btnShareDesktop = document.getElementById('shareDesktop');
 const btnMixDesktop = document.getElementById('mixDesktop');
 const btnShareMp3 = document.getElementById('shareMp3');
@@ -24,9 +21,9 @@ const g_roomName = 'name';
 // const g_roomId = '12345611';
 const g_videoWidth = 640;
 const g_videoHeight = 480;
-const g_protooUrl = "wss://szt.szkingdom.vip:4443/";
+// const g_protooUrl = "wss://szt.szkingdom.vip:4443/";
 // const g_protooUrl = "wss://s1.chinalin.com:4443";
-// const g_protooUrl = "wss://inward.szkingdom.vip:4443/";
+const g_protooUrl = "wss://inward.szkingdom.vip:4443/";
 
 // utils
 const showStreamRatio = (stream) => {
@@ -50,44 +47,34 @@ const getMediaDevices = async () => {
 const getLocalStream = async () => {
     let devices = await getMediaDevices();
     devices.forEach(element => {
-        console.log(element);
+        // console.log(element);
     });
 
     let deviceId ;
-
     devices.forEach( (device) => {
         if(device.kind.toLowerCase() == "videoinput") {
-            console.log(device);
+            // console.log(device);
             deviceId = device.deviceId; // 指定摄像头
         }
     });
 
+    // deviceId = '6f26c52bec302cadaac81be87d1a5f0fdda3c2dda4b6e2f2df60d4f5ea3eda0e';
     let stream;
     try {
-        const constraints = makeConstraints(g_videoWidth,g_videoHeight,deviceId);
+        // const constraints = makeConstraints(g_videoWidth,g_videoHeight,deviceId);
+        const constraints = makeConstraints(g_videoWidth,g_videoHeight);
         stream = await gum(constraints);
     } catch (err) {
-        console.error(err);
+        // console.error(err);
+        alert(DEFAULT_CONSTRAINTS);
         stream = await gum(DEFAULT_CONSTRAINTS); // 使用默认值
     }
 
+    // TODO:强制分辨率
+    // if(stream)
+
     return stream;
 }
-
-// // 回调事件
-// const handlerLStreamCallback = (localStream) => {
-//     localStream = localStream;
-//     videoLocal.srcObject = localStream;
-
-//     btnMakeCall.disabled = true;
-//     btnHangup.disabled = false;
-//     btnShareDesktop.disabled = false;
-//     btnMixDesktop.disabled = false;
-//     btnShareMp3.disabled = false;
-
-//     console.log('get localstream');
-//     showStreamRatio(localStream);
-// }
 
 const handlerRStreamCallback = (remoteStream) => {
     remoteStream = remoteStream;
@@ -145,7 +132,6 @@ btnMakeCall.onclick = async () => {
     // btnMakeCall.disabled = true;
     // btnHangup.disabled = false;
     let storeCallback = new Object();
-    // storeCallback.handlerLStreamCallback = handlerLStreamCallback;
     storeCallback.handlerRStreamCallback = handlerRStreamCallback;
     storeCallback.handlerChatDataCallback = handlerChatDataCallback;
     storeCallback.handlerSuccessfulCallback = handlerSuccessfulCallback;
@@ -170,7 +156,7 @@ btnMakeCall.onclick = async () => {
         forceH264: false,
         forceVP9: false,
         svc: false,
-        datachannel: false,
+        datachannel: true,
         storeCallback: storeCallback
     });
 

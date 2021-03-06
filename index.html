@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>kingchat2.0-demo</title>
     <link href="./main.css" rel="stylesheet" />
+    <!-- <script src="https://cdn.bootcdn.net/ajax/libs/eruda/1.5.1/eruda.min.js"></script> -->
 </head>
 
 <body>
@@ -13,7 +14,7 @@
         
         <div class="roleBox">
             房间号:<input type="input" value="123456" id="roomid">
-            <button id="gum">打开摄像头</button>
+            <!-- <button id="gum">打开摄像头</button> -->
             <br><br>
             <button id="makeCall">开始视频</button>
             <button id="hangup" disabled>结束视频</button>
@@ -22,6 +23,7 @@
             <button id="shareMp3" disabled>播报语音</button>
 
             <br><br>
+            <button id="recordServerSingle">服务器录制单向</button>
             <button id="recordServer" disabled>服务器录制</button>
             <button id="downloadServer" disabled>下载</button>
             <br><br>
@@ -59,13 +61,15 @@
             </div>
         </div>
     </div>
-    <!-- <script src="./kingwebrtc.js"></script>
+    <script src="./kingwebrtc.js"></script>
     <script src="./main.js"></script>
     <script src="./recordLocal.js"></script>
     <script src="./recordServer.js"></script>
     <script src="./shareMp3.js"></script>
-    <script src="./gum.js"></script> -->
-    <script src="./kingwebrtc.js"></script>
+    <script src="./gum.js"></script>
+    <!-- <script src="https://cdn.bootcdn.net/ajax/libs/eruda/1.5.1/eruda.js"></script>
+    <script>eruda.init();</script> -->
+    <!-- <script src="./kingwebrtc.js"></script> -->
     <script>
         function bb(obj) {
             console.log(obj);

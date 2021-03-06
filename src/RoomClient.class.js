@@ -1,5 +1,7 @@
 import('@babel/polyfill');
-import ('adapterjs');
+import('adapterjs');
+const RetryOperation = require('retry');
+
 // import('../node_modules/adapterjs/publish/adapter.screenshare.min')
 
 import protooClient from 'protoo-client';
@@ -8,53 +10,11 @@ import deviceInfo from './deviceInfo';
 import MultiStreamsMixer from 'multistreamsmixer';
 import Logger from './Logger';
 import randomString from 'random-string';
-// import { gum, gud, normalVideoRenderHandler } from './gum';
-
-const VIDEO_CONSTRAINS =
-{
-	qvga: { width: { ideal: 320 }, height: { ideal: 240 } },
-	vga: { width: { ideal: 640 }, height: { ideal: 480 } },
-	hd: { width: { ideal: 1280 }, height: { ideal: 720 } }
-};
 
 const PC_PROPRIETARY_CONSTRAINTS =
 {
 	optional: [{ googDscp: true }]
 };
-
-// Used for simulcast webcam video.
-// const WEBCAM_SIMULCAST_ENCODINGS =
-// 	[
-// 		{ scaleResolutionDownBy: 4, maxBitrate: 500000 },
-// 		{ scaleResolutionDownBy: 2, maxBitrate: 1000000 },
-// 		{ scaleResolutionDownBy: 1, maxBitrate: 5000000 }
-// 	];
-const WEBCAM_SIMULCAST_ENCODINGS =
-	[
-		// { scaleResolutionDownBy: 4, maxBitrate: 500000 },
-		// { scaleResolutionDownBy: 2, maxBitrate: 1000000 },
-		{ scaleResolutionDownBy: 1, maxBitrate: 500000 }
-	];
-
-// Used for VP9 webcam video.
-const WEBCAM_KSVC_ENCODINGS =
-	[
-		{ scalabilityMode: 'S3T3_KEY' }
-	];
-
-// Used for simulcast screen sharing.
-const SCREEN_SHARING_SIMULCAST_ENCODINGS =
-	[
-		{ dtx: true, maxBitrate: 1500000 },
-		{ dtx: true, maxBitrate: 6000000 }
-	];
-
-// Used for VP9 screen sharing.
-const SCREEN_SHARING_SVC_ENCODINGS =
-	[
-		{ scalabilityMode: 'S3T3', dtx: true }
-	];
-
 
 const logger = new Logger('RoomClient');
 
@@ -211,13 +171,7 @@ export class RoomClient {
 		this.handlerSuccessfulCallback = storeCallback.handlerSuccessfulCallback;
 		this.handlerActionCallback = storeCallback.handlerActionCallback;
 		this.mixedStream = mixedStream;
-		// Set custom SVC scalability mode.
-		if (svc) {
-			WEBCAM_KSVC_ENCODINGS[0].scalabilityMode = `${svc}_KEY`;
-			SCREEN_SHARING_SVC_ENCODINGS[0].scalabilityMode = svc;
-		}
 	}
-
 
 	close() {
 		if (this._closed)
@@ -270,9 +224,14 @@ export class RoomClient {
 		callback(res);
 	}
 
+	// 加入房间
+	// 加入成功后会触发this._joinRoom()方法
+	// 定义信令和事件
 	async join() {
 		// 创建websockt通信,WebSocketTransport 是一种特殊处理过的websocket
-		logger.debug("_protooUrl: %s", this._protooUrl);
+		// logger.debug("_protooUrl: %s", this._protooUrl);
+		// let opt =  RetryOperation.operation();
+		// TODO: 连接出错误后显示错误原因
 		const protooTransport = new protooClient.WebSocketTransport(this._protooUrl);
 
 		this._protoo = new protooClient.Peer(protooTransport);
@@ -308,7 +267,6 @@ export class RoomClient {
 				request.method, request.data);
 
 			switch (request.method) {
-
 				case 'newConsumer':
 					{
 
@@ -503,6 +461,12 @@ export class RoomClient {
 			// 	notification.method, notification.data);
 
 			switch (notification.method) {
+				case 'getOtherRtpCapabilities':
+					{
+						const rtpCapabilities = notification.data;
+						logger.debug('getOtherRtpCapabilities', rtpCapabilities);
+						break;
+					}
 				case 'producerScore':
 					{
 						const { producerId, score } = notification.data;
@@ -512,6 +476,8 @@ export class RoomClient {
 				case 'newPeer':
 					{
 						const peer = notification.data;
+						this._mediasoupDevice.otherrtpCapabilities = peer.rtpCapabilities;
+						this._startProduce();
 						this.handlerActionCallback({
 							action: 'other-connected',
 							info: JSON.stringify(peer)
@@ -631,27 +597,23 @@ export class RoomClient {
 		});
 	}
 
+	// 分享麦克风
+	// 1.现在麦克风在外部打开
+	// 2.和摄像头一起请求,好处可以减少一次授权,
+	// 3.但在手机端媒体未授权时候不知道是摄像头还是麦克风没权限
 	async enableMic() {
-		logger.debug('enableMic()');
-
 		if (this._micProducer)
 			return;
-
 		if (!this._mediasoupDevice.canProduce('audio')) {
 			logger.error('enableMic() | cannot produce audio');
 			return;
 		}
 
 		let track;
-
 		try {
 			logger.debug('enableMic() | calling getUserMedia()');
 
 			track = this.localStream.getAudioTracks()[0];
-			if (!this.localStream)
-				this.localStream = new MediaStream();
-			this.localStream.addTrack(track);
-
 			this._micProducer = await this._sendTransport.produce(
 				{
 					track,
@@ -797,8 +759,9 @@ export class RoomClient {
 		}
 	}
 
+	// 开始传输摄像头视频
+	// 1.现在摄像头视频流在外部获取
 	async enableWebcam() {
-		logger.debug("开始打开摄像头!!!!");
 		if (this._webcamProducer)
 			return;
 		else if (this._shareProducer)
@@ -806,75 +769,28 @@ export class RoomClient {
 
 		if (!this._mediasoupDevice.canProduce('video')) {
 			logger.error('enableWebcam() | cannot produce video');
-
 			return;
 		}
 
 		let track;
-		let device;
 
 		try {
-
-			await this._updateWebcams();
-			device = this._webcam.device;
-
-			const { resolution } = this._webcam;
-
-			if (!device)
-				throw new Error('no webcam devices');
-
 			logger.debug('enableWebcam() | calling getUserMedia()');
 
 			track = localStream.getVideoTracks()[0];
-			let encodings;
-			let codec;
-			const codecOptions =
-			{
-				videoGoogleStartBitrate: 320
-			};
-
-
-			if (this._forceH264) {
-				codec = this._mediasoupDevice.rtpCapabilities.codecs
-					.find((c) => c.mimeType.toLowerCase() === 'video/h264');
-
-				if (!codec) {
-					throw new Error('desired H264 codec+configuration is not supported');
-				}
-			}
-			else if (this._forceVP9) {
-				codec = this._mediasoupDevice.rtpCapabilities.codecs
-					.find((c) => c.mimeType.toLowerCase() === 'video/vp9');
-
-				if (!codec) {
-					throw new Error('desired VP9 codec+configuration is not supported');
-				}
-			}
-
-			if (this._useSimulcast) {
-				// If VP9 is the only available video codec then use SVC.
-				const firstVideoCodec = this._mediasoupDevice
-					.rtpCapabilities
-					.codecs
-					.find((c) => c.kind === 'video');
-
-				if (
-					(this._forceVP9 && codec) ||
-					firstVideoCodec.mimeType.toLowerCase() === 'video/vp9'
-				) {
-					encodings = WEBCAM_KSVC_ENCODINGS;
-				}
-				else {
-					encodings = WEBCAM_SIMULCAST_ENCODINGS;
-				}
-			}
-
+			// TODO: 获取对端的codec
+			const firstVideoCodec;
+			// const firstVideoCodec = this._mediasoupDevice
+			// 	._extendedRtpCapabilities
+			// 	.codecs
+			// 	.find((c) =>
+			// 		c.kind === 'video' &&
+			// 		c.mimeType.toLowerCase() === 'video/vp8'
+			// 	);
 			this._webcamProducer = await this._sendTransport.produce(
 				{
 					track,
-					encodings,
-					codecOptions,
-					codec
+					firstVideoCodec
 				});
 
 			this._webcamProducer.on('transportclose', () => {
@@ -882,10 +798,9 @@ export class RoomClient {
 			});
 
 			this._webcamProducer.on('trackended', () => {
-				this.disableWebcam()
-					.catch(() => { });
+				this.disableWebcam().catch(() => { });
 			});
-			
+
 		}
 		catch (error) {
 			logger.error('enableWebcam() | failed:%o', error);
@@ -916,99 +831,6 @@ export class RoomClient {
 		}
 
 		this._webcamProducer = null;
-	}
-
-	async changeWebcam() {
-		logger.debug('changeWebcam()');
-
-		try {
-			await this._updateWebcams();
-
-			const array = Array.from(this._webcams.keys());
-			const len = array.length;
-			const deviceId =
-				this._webcam.device ? this._webcam.device.deviceId : undefined;
-			let idx = array.indexOf(deviceId);
-
-			if (idx < len - 1)
-				idx++;
-			else
-				idx = 0;
-
-			this._webcam.device = this._webcams.get(array[idx]);
-
-			logger.debug(
-				'changeWebcam() | new selected webcam [device:%o]',
-				this._webcam.device);
-
-			// Reset video resolution to HD.
-			this._webcam.resolution = 'hd';
-
-			if (!this._webcam.device)
-				throw new Error('no webcam devices');
-
-			// Closing the current video track before asking for a new one (mobiles do not like
-			// having both front/back cameras open at the same time).
-			this._webcamProducer.track.stop();
-
-			logger.debug('changeWebcam() | calling getUserMedia()');
-
-			const stream = await navigator.mediaDevices.getUserMedia(
-				{
-					video:
-					{
-						deviceId: { exact: this._webcam.device.deviceId },
-						...VIDEO_CONSTRAINS[this._webcam.resolution]
-					}
-				});
-
-			const track = stream.getVideoTracks()[0];
-
-			await this._webcamProducer.replaceTrack({ track });
-		}
-		catch (error) {
-			logger.error('changeWebcam() | failed: %o', error);
-		}
-	}
-
-	async changeWebcamResolution() {
-		logger.debug('changeWebcamResolution()');
-
-		try {
-			switch (this._webcam.resolution) {
-				case 'qvga':
-					this._webcam.resolution = 'vga';
-					break;
-				case 'vga':
-					this._webcam.resolution = 'hd';
-					break;
-				case 'hd':
-					this._webcam.resolution = 'qvga';
-					break;
-				default:
-					this._webcam.resolution = 'hd';
-			}
-
-			logger.debug('changeWebcamResolution() | calling getUserMedia()');
-
-			const stream = await navigator.mediaDevices.getUserMedia(
-				{
-					video:
-					{
-						deviceId: { exact: this._webcam.device.deviceId },
-						...VIDEO_CONSTRAINS[this._webcam.resolution]
-					}
-				});
-
-			const track = stream.getVideoTracks()[0];
-
-			await this._webcamProducer.replaceTrack({ track });
-
-		}
-		catch (error) {
-			logger.error('changeWebcamResolution() | failed: %o', error);
-		}
-
 	}
 
 	async enableShareDesktop() {
@@ -1050,55 +872,10 @@ export class RoomClient {
 			}
 
 			track = stream.getVideoTracks()[0];
-
-			let encodings;
 			let codec;
-			const codecOptions =
-			{
-				videoGoogleStartBitrate: 1000
-			};
-
-			if (this._forceH264) {
-				codec = this._mediasoupDevice.rtpCapabilities.codecs
-					.find((c) => c.mimeType.toLowerCase() === 'video/h264');
-
-				if (!codec) {
-					throw new Error('desired H264 codec+configuration is not supported');
-				}
-			}
-			else if (this._forceVP9) {
-				codec = this._mediasoupDevice.rtpCapabilities.codecs
-					.find((c) => c.mimeType.toLowerCase() === 'video/vp9');
-
-				if (!codec) {
-					throw new Error('desired VP9 codec+configuration is not supported');
-				}
-			}
-
-			if (this._useSharingSimulcast) {
-				// If VP9 is the only available video codec then use SVC.
-				const firstVideoCodec = this._mediasoupDevice
-					.rtpCapabilities
-					.codecs
-					.find((c) => c.kind === 'video');
-
-				if (
-					(this._forceVP9 && codec) ||
-					firstVideoCodec.mimeType.toLowerCase() === 'video/vp9'
-				) {
-					encodings = SCREEN_SHARING_SVC_ENCODINGS;
-				}
-				else {
-					encodings = SCREEN_SHARING_SIMULCAST_ENCODINGS
-						.map((encoding) => ({ ...encoding, dtx: true }));
-				}
-			}
-
 			this._shareProducer = await this._sendTransport.produce(
 				{
 					track,
-					encodings,
-					codecOptions,
 					codec,
 					appData:
 					{
@@ -1399,22 +1176,6 @@ export class RoomClient {
 		}
 	}
 
-	async changeDisplayName(displayName) {
-		logger.debug('changeDisplayName() [displayName:"%s"]', displayName);
-
-		// Store in cookie.
-		cookiesManager.setUser({ displayName });
-
-		try {
-			await this._protoo.request('changeDisplayName', { displayName });
-
-			this._displayName = displayName;
-		}
-		catch (error) {
-			logger.error('changeDisplayName() | failed: %o', error);
-		}
-	}
-
 	async getSendTransportRemoteStats() {
 		logger.debug('getSendTransportRemoteStats()');
 
@@ -1577,199 +1338,221 @@ export class RoomClient {
 			}
 		}
 	}
-	async _pushMixedStream(stream) {
+	// async _pushMixedStream(stream) {
+	// 	this._mediasoupDevice = new mediasoupClient.Device(
+	// 		{
+	// 			handlerName: this._handlerName
+	// 		});
+	// 	const routerRtpCapabilities = await this._protoo.request('getRouterRtpCapabilities');
+
+	// 	await this._mediasoupDevice.load({ routerRtpCapabilities });
+
+	// 	//推流步骤 1、创建 _sendTransport
+	// 	const transportInfo = await this._protoo.request(
+	// 		'createWebRtcTransport',
+	// 		{
+	// 			forceTcp: this._forceTcp,
+	// 			producing: true,
+	// 			consuming: false,
+	// 			sctpCapabilities: this._useDataChannel
+	// 				? this._mediasoupDevice.sctpCapabilities
+	// 				: undefined
+	// 		});
+
+	// 	const {
+	// 		id,
+	// 		iceParameters,
+	// 		iceCandidates,
+	// 		dtlsParameters,
+	// 		sctpParameters
+	// 	} = transportInfo;
+
+	// 	this._sendTransport = this._mediasoupDevice.createSendTransport(
+	// 		{
+	// 			id,
+	// 			iceParameters,
+	// 			iceCandidates,
+	// 			dtlsParameters,
+	// 			sctpParameters,
+	// 			iceServers: [],
+	// 			proprietaryConstraints: PC_PROPRIETARY_CONSTRAINTS
+	// 		});
+
+	// 	this._sendTransport.on(
+	// 		'connect', ({ dtlsParameters }, callback, errback) => // eslint-disable-line no-shadow
+	// 	{
+	// 		this._protoo.request(
+	// 			'connectWebRtcTransport',
+	// 			{
+	// 				transportId: this._sendTransport.id,
+	// 				dtlsParameters
+	// 			})
+	// 			.then(callback)
+	// 			.catch(errback);
+	// 	});
+
+	// 	this._sendTransport.on(
+	// 		'produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
+	// 			try {
+	// 				// eslint-disable-next-line no-shadow
+	// 				const { id } = await this._protoo.request(
+	// 					'produce',
+	// 					{
+	// 						transportId: this._sendTransport.id,
+	// 						kind,
+	// 						rtpParameters,
+	// 						appData
+	// 					});
+
+	// 				callback({ id });
+	// 			}
+	// 			catch (error) {
+	// 				errback(error);
+	// 			}
+	// 		});
+
+	// 	this._sendTransport.on('producedata', async (
+	// 		{
+	// 			sctpStreamParameters,
+	// 			label,
+	// 			protocol,
+	// 			appData
+	// 		},
+	// 		callback,
+	// 		errback
+	// 	) => {
+	// 		logger.debug(
+	// 			'"producedata" event: [sctpStreamParameters:%o, appData:%o]',
+	// 			sctpStreamParameters, appData);
+
+	// 		try {
+	// 			// eslint-disable-next-line no-shadow
+	// 			const { id } = await this._protoo.request(
+	// 				'produceData',
+	// 				{
+	// 					transportId: this._sendTransport.id,
+	// 					sctpStreamParameters,
+	// 					label,
+	// 					protocol,
+	// 					appData
+	// 				});
+
+	// 			callback({ id });
+	// 		}
+	// 		catch (error) {
+	// 			errback(error);
+	// 		}
+	// 	});
+	// 	const { peers } = await this._protoo.request(
+	// 		'join',
+	// 		{
+	// 			displayName: this._displayName,
+	// 			device: this._device,
+	// 			rtpCapabilities: this._consume
+	// 				? this._mediasoupDevice.rtpCapabilities
+	// 				: undefined,
+	// 			sctpCapabilities: this._useDataChannel && this._consume
+	// 				? this._mediasoupDevice.sctpCapabilities
+	// 				: undefined
+	// 		});
+
+	// 	//推流步骤2 发送音频轨到服务端
+	// 	let audio_track = stream.getAudioTracks()[0];
+
+	// 	this._mixedAudioProducer = await this._sendTransport.produce(
+	// 		{
+	// 			track: audio_track,
+	// 			codecOptions:
+	// 			{
+	// 				opusStereo: 1,
+	// 				opusDtx: 1
+	// 			}
+	// 		});
+
+	// 	this._mixedAudioProducer.on('transportclose', () => {
+	// 		this._mixedAudioProducer = null;
+	// 	});
+
+	// 	this._mixedAudioProducer.on('trackended', () => {
+	// 		this._mixedAudioProducer = null;
+	// 	});
+
+	// 	//推流步骤 3、发送视频轨到服务端
+	// 	let track = stream.getVideoTracks()[0];
+	// 	let encodings;
+	// 	let codec;
+	// 	const codecOptions =
+	// 	{
+	// 		videoGoogleStartBitrate: 1000
+	// 	};
+	// 	codec = this._mediasoupDevice.rtpCapabilities.codecs.find((c) => c.mimeType.toLowerCase() === 'video/h264');
+
+	// 	encodings = WEBCAM_SIMULCAST_ENCODINGS;
+
+	// 	this._mixedVideoProducer = await this._sendTransport.produce(
+	// 		{
+	// 			track,
+	// 			encodings,
+	// 			codecOptions,
+	// 			codec
+	// 		});
+	// 	this.startRecord();
+
+	// 	this._mixedVideoProducer.on('transportclose', () => {
+	// 		this._mixedVideoProducer = null;
+	// 	});
+
+	// 	this._mixedVideoProducer.on('trackended', () => {
+	// 		this._mixedVideoProducer = null;
+	// 	});
+
+
+	// 	this._sendTransport.on('connectionstatechange', (connectionState) => {
+	// 		if (connectionState === 'connected') {
+	// 			this.enableChatDataProducer();
+	// 			this.enableBotDataProducer();
+	// 		}
+	// 	});
+	// }
+
+	async _setRtpCapabilities() {
 		this._mediasoupDevice = new mediasoupClient.Device(
 			{
 				handlerName: this._handlerName
 			});
-		const routerRtpCapabilities = await this._protoo.request('getRouterRtpCapabilities');
 
+		// 获取媒体能力
+		// routerRtpCapabilities.codecs 服务的能力
+		// routerRtpCapabilities.headerExtensions 本地的能力
+		const routerRtpCapabilities =
+			await this._protoo.request('getRouterRtpCapabilities');
+
+		{
+			// urn:3gpp:video-orientation 字段
+			// 会让视频自动旋转
+			// 删除之后能得到正确视频,手机旋转之后图像跟着旋转
+			// TODO: 加上之后怎么拿到正确视频方向,尝试在服务端设置这个值,期望服务器能拿到视频方向,失败
+			// producer中videoorientationchange事件,但是在服务器端拿到方向
+			// https://mediasoup.org/documentation/v3/mediasoup/api/
+
+			routerRtpCapabilities.headerExtensions = routerRtpCapabilities.headerExtensions.
+				filter((ext) => ext.uri !== 'urn:3gpp:video-orientation');
+		}
+
+		// this._mediasoupDevice._extendedRtpCapabilities 本地和服务器都支持的编解码器,包含服务器的约束
+		// this._mediasoupDevice.rtpCapabilities 
+		// 如果服务器没有支持的编解码器
+		// 1.单向视频修改为默认本地的编解码器,服务器保存该编解码
+		// 2.双向视频此处应该为对方能力,但是目前双向视频的码率等设置还在服务上
 		await this._mediasoupDevice.load({ routerRtpCapabilities });
 
-		//推流步骤 1、创建 _sendTransport
-		const transportInfo = await this._protoo.request(
-			'createWebRtcTransport',
-			{
-				forceTcp: this._forceTcp,
-				producing: true,
-				consuming: false,
-				sctpCapabilities: this._useDataChannel
-					? this._mediasoupDevice.sctpCapabilities
-					: undefined
-			});
+		await this._protoo.request(
+			'setRtpCapabilities', { rtpCapabilities: this._mediasoupDevice._extendedRtpCapabilities });
 
-		const {
-			id,
-			iceParameters,
-			iceCandidates,
-			dtlsParameters,
-			sctpParameters
-		} = transportInfo;
-
-		this._sendTransport = this._mediasoupDevice.createSendTransport(
-			{
-				id,
-				iceParameters,
-				iceCandidates,
-				dtlsParameters,
-				sctpParameters,
-				iceServers: [],
-				proprietaryConstraints: PC_PROPRIETARY_CONSTRAINTS
-			});
-
-		this._sendTransport.on(
-			'connect', ({ dtlsParameters }, callback, errback) => // eslint-disable-line no-shadow
-		{
-			this._protoo.request(
-				'connectWebRtcTransport',
-				{
-					transportId: this._sendTransport.id,
-					dtlsParameters
-				})
-				.then(callback)
-				.catch(errback);
-		});
-
-		this._sendTransport.on(
-			'produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
-				try {
-					// eslint-disable-next-line no-shadow
-					const { id } = await this._protoo.request(
-						'produce',
-						{
-							transportId: this._sendTransport.id,
-							kind,
-							rtpParameters,
-							appData
-						});
-
-					callback({ id });
-				}
-				catch (error) {
-					errback(error);
-				}
-			});
-
-		this._sendTransport.on('producedata', async (
-			{
-				sctpStreamParameters,
-				label,
-				protocol,
-				appData
-			},
-			callback,
-			errback
-		) => {
-			logger.debug(
-				'"producedata" event: [sctpStreamParameters:%o, appData:%o]',
-				sctpStreamParameters, appData);
-
-			try {
-				// eslint-disable-next-line no-shadow
-				const { id } = await this._protoo.request(
-					'produceData',
-					{
-						transportId: this._sendTransport.id,
-						sctpStreamParameters,
-						label,
-						protocol,
-						appData
-					});
-
-				callback({ id });
-			}
-			catch (error) {
-				errback(error);
-			}
-		});
-		const { peers } = await this._protoo.request(
-			'join',
-			{
-				displayName: this._displayName,
-				device: this._device,
-				rtpCapabilities: this._consume
-					? this._mediasoupDevice.rtpCapabilities
-					: undefined,
-				sctpCapabilities: this._useDataChannel && this._consume
-					? this._mediasoupDevice.sctpCapabilities
-					: undefined
-			});
-
-		//推流步骤2 发送音频轨到服务端
-		let audio_track = stream.getAudioTracks()[0];
-
-		this._mixedAudioProducer = await this._sendTransport.produce(
-			{
-				track: audio_track,
-				codecOptions:
-				{
-					opusStereo: 1,
-					opusDtx: 1
-				}
-			});
-
-		this._mixedAudioProducer.on('transportclose', () => {
-			this._mixedAudioProducer = null;
-		});
-
-		this._mixedAudioProducer.on('trackended', () => {
-			this._mixedAudioProducer = null;
-		});
-
-		//推流步骤 3、发送视频轨到服务端
-		let track = stream.getVideoTracks()[0];
-		let encodings;
-		let codec;
-		const codecOptions =
-		{
-			videoGoogleStartBitrate: 1000
-		};
-		codec = this._mediasoupDevice.rtpCapabilities.codecs.find((c) => c.mimeType.toLowerCase() === 'video/h264');
-
-		encodings = WEBCAM_SIMULCAST_ENCODINGS;
-
-		this._mixedVideoProducer = await this._sendTransport.produce(
-			{
-				track,
-				encodings,
-				codecOptions,
-				codec
-			});
-		this.startRecord();
-
-		this._mixedVideoProducer.on('transportclose', () => {
-			this._mixedVideoProducer = null;
-		});
-
-		this._mixedVideoProducer.on('trackended', () => {
-			this._mixedVideoProducer = null;
-		});
-
-
-		this._sendTransport.on('connectionstatechange', (connectionState) => {
-			if (connectionState === 'connected') {
-				this.enableChatDataProducer();
-				this.enableBotDataProducer();
-			}
-		});
 	}
-	async _joinRoom() {
-		this.handlerSuccessfulCallback('connect to signalserver successfully!');
-		//混流后 推到录制服务器
-		if (this.mixedStream) {
-			this._pushMixedStream(this.mixedStream);
-			return;
-		}
+
+	async _connectMediastream() {
 		try {
-			this._mediasoupDevice = new mediasoupClient.Device(
-				{
-					handlerName: this._handlerName
-				});
-
-			const routerRtpCapabilities =
-				await this._protoo.request('getRouterRtpCapabilities');
-
-			await this._mediasoupDevice.load({ routerRtpCapabilities });
 
 			// NOTE: Stuff to play remote audios due to browsers' new autoplay policy.
 			// Just get access to the mic and DO NOT close the mic track for a while.
@@ -1827,6 +1610,9 @@ export class RoomClient {
 						.catch(errback);
 				});
 
+				// 先调用enableWebcam/produce() 
+				// 然后响应这个回调
+				// 如果未指定编码器,则使用服务器默认的编码器
 				this._sendTransport.on(
 					'produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
 						try {
@@ -1938,9 +1724,7 @@ export class RoomClient {
 				{
 					displayName: this._displayName,
 					device: this._device,
-					rtpCapabilities: this._consume
-						? this._mediasoupDevice.rtpCapabilities
-						: undefined,
+					rtpCapabilities: this._mediasoupDevice._extendedRtpCapabilities,
 					sctpCapabilities: this._useDataChannel && this._consume
 						? this._mediasoupDevice.sctpCapabilities
 						: undefined
@@ -1951,23 +1735,6 @@ export class RoomClient {
 			for (const peer of peers) {
 				logger.debug("这是当前的peer: %o", peer);
 			}
-
-			// Enable mic/webcam.
-			if (this._produce) {
-
-				await this.enableMic();
-				await this.enableWebcam();
-
-				await this.enableChatDataProducer();
-
-				this._sendTransport.on('connectionstatechange', (connectionState) => {
-					logger.debug("连接状态改变! :%s", connectionState);
-					if (connectionState === 'connected') {
-						this.enableChatDataProducer();
-						this.enableBotDataProducer();
-					}
-				});
-			}
 		}
 		catch (error) {
 			logger.error('_joinRoom() failed:%o', error);
@@ -1976,35 +1743,40 @@ export class RoomClient {
 		}
 	}
 
-	async _updateWebcams() {
-		logger.debug('_updateWebcams()');
+	async _startProduce() {
+		// Enable mic/webcam.
+		// 为了让媒体能够互相交换编解码器,这一步需要在拿到编解码器之后才调用
+		// 计划在newPeers中交换编解码信息,这种方式会减少建立连接的时间但是时序不好控制
+		// 可能对方已经连接上来但和服务器的连接尚未建立
+		if (this._produce) {
 
-		// Reset the list.
-		this._webcams = new Map();
+			await this.enableMic();
+			await this.enableWebcam();
 
-		logger.debug('_updateWebcams() | calling enumerateDevices()');
+			await this.enableChatDataProducer();
 
-		const devices = await navigator.mediaDevices.enumerateDevices();
-
-		for (const device of devices) {
-			if (device.kind !== 'videoinput')
-				continue;
-
-			this._webcams.set(device.deviceId, device);
+			this._sendTransport.on('connectionstatechange', (connectionState) => {
+				logger.debug("连接状态改变! :%s", connectionState);
+				if (connectionState === 'connected') {
+					this.enableChatDataProducer();
+					this.enableBotDataProducer();
+				}
+			});
 		}
-
-		const array = Array.from(this._webcams.values());
-		const len = array.length;
-		const currentWebcamId =
-			this._webcam.device ? this._webcam.device.deviceId : undefined;
-
-		logger.debug('_updateWebcams() [webcams:%o]', array);
-
-		if (len === 0)
-			this._webcam.device = null;
-		else if (!this._webcams.has(currentWebcamId))
-			this._webcam.device = array[0];
 	}
+
+	async _joinRoom() {
+
+		// 连接信令服务器服务器成功回调
+		await this.handlerSuccessfulCallback('connect to signalserver successfully!');
+
+		// 获取媒体信息
+		await this._setRtpCapabilities();
+
+		await this._connectMediastream();
+	}
+
+
 
 	_getWebcamType(device) {
 		if (/(back|rear)/i.test(device.label)) {
