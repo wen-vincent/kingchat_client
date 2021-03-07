@@ -21,9 +21,9 @@ const g_roomName = 'name';
 // const g_roomId = '12345611';
 const g_videoWidth = 640;
 const g_videoHeight = 480;
-// const g_protooUrl = "wss://szt.szkingdom.vip:4443/";
+const g_protooUrl = "wss://szt.szkingdom.vip:4443/";
 // const g_protooUrl = "wss://s1.chinalin.com:4443";
-const g_protooUrl = "wss://inward.szkingdom.vip:4443/";
+// const g_protooUrl = "wss://inward.szkingdom.vip:4443/";
 
 // utils
 const showStreamRatio = (stream) => {
@@ -78,6 +78,9 @@ const getLocalStream = async () => {
 
 const handlerRStreamCallback = (remoteStream) => {
     remoteStream = remoteStream;
+    videoRemote.oncanplay = ()=> {
+        videoRemote.play();
+    }
     videoRemote.srcObject = remoteStream;
 
     btnHangup.disabled = false;
@@ -126,8 +129,14 @@ const handlerActionCallback = (msg) => { // 对方连接断开指令
 
 // 按钮事件
 btnMakeCall.onclick = async () => {
+
+
     localStream = await getLocalStream();
+    videoLocal.oncanplay= () => {
+        videoLocal.play();
+    };
     videoLocal.srcObject = localStream;
+
 
     // btnMakeCall.disabled = true;
     // btnHangup.disabled = false;
@@ -160,7 +169,10 @@ btnMakeCall.onclick = async () => {
         storeCallback: storeCallback
     });
 
-    await roomClient.join();
+    await roomClient.join( () => {
+        console.log('joined');
+    });
+        
 }
 
 btnHangup.onclick = async () => {

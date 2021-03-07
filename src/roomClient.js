@@ -1,6 +1,5 @@
 import('@babel/polyfill');
 import('adapterjs');
-const RetryOperation = require('retry');
 
 // import('../node_modules/adapterjs/publish/adapter.screenshare.min')
 
@@ -8,15 +7,12 @@ import protooClient from 'protoo-client';
 import * as mediasoupClient from 'mediasoup-client';
 import deviceInfo from './deviceInfo';
 import MultiStreamsMixer from 'multistreamsmixer';
-import Logger from './Logger';
 import randomString from 'random-string';
 
 const PC_PROPRIETARY_CONSTRAINTS =
 {
 	optional: [{ googDscp: true }]
 };
-
-const logger = new Logger('RoomClient');
 
 export class RoomClient {
 
@@ -45,7 +41,7 @@ export class RoomClient {
 		this._device = deviceInfo();
 		const peerId = randomString({ length: 16 }).toLowerCase();
 
-		logger.debug(
+		console.debug(
 			'constructor() [roomId:"%s", peerId:"%s", displayName:"%s", device:%s]',
 			roomId, peerId, displayName, this._device.flag);
 
@@ -179,7 +175,7 @@ export class RoomClient {
 
 		this._closed = true;
 
-		logger.debug('close()');
+		console.debug('close()');
 
 		// Close protoo Peer
 		this._protoo.close();
@@ -195,24 +191,24 @@ export class RoomClient {
 		this.disableWebcam();
 	}
 
-	async startRecord() {
+	async startRecord(recordCallbk) {
 		if (!this._protoo) {
-			logger.warn("There is no websocket connection !");
+			console.warn("There is no websocket connection !");
 			return;
 		}
-		logger.debug("发送录制命令");
+		console.debug("发送录制命令");
 		const startRecordRes = await this._protoo.request(
 			'start-record',
 			{
 				roomId: this.roomId
 			});
-		logger.debug(startRecordRes);
+		console.debug('startRecordRes', startRecordRes);
 	}
 
 	async stopRecord(callback) {
 		this._recordCallback = callback;
 		if (!this._protoo) {
-			logger.warn("There is no websocket connection !");
+			console.warn("There is no websocket connection !");
 			return;
 		}
 		const res = await this._protoo.request(
@@ -220,25 +216,29 @@ export class RoomClient {
 			{
 				roomId: this.roomId
 			});
-		logger.debug(res);
+		console.debug(res);
 		callback(res);
 	}
 
 	// 加入房间
 	// 加入成功后会触发this._joinRoom()方法
 	// 定义信令和事件
-	async join() {
+	async join(joinedcallbk) {
 		// 创建websockt通信,WebSocketTransport 是一种特殊处理过的websocket
-		// logger.debug("_protooUrl: %s", this._protooUrl);
+		// console.debug("_protooUrl: %s", this._protooUrl);
 		// let opt =  RetryOperation.operation();
 		// TODO: 连接出错误后显示错误原因
 		const protooTransport = new protooClient.WebSocketTransport(this._protooUrl);
 
 		this._protoo = new protooClient.Peer(protooTransport);
-		this._protoo.on('open', () => this._joinRoom());
+		this._protoo.on('open', async () => {
+			await this._joinRoom();
+			joinedcallbk();
+		});
 
 		this._protoo.on('failed', () => {
-			logger.error("protoo websocket failed !")
+			console.error("protoo websocket failed !")
+			joinedcallbk();
 		});
 
 		this._protoo.on('disconnected', () => {
@@ -262,7 +262,7 @@ export class RoomClient {
 		});
 
 		this._protoo.on('request', async (request, accept, reject) => {
-			logger.debug(
+			console.debug(
 				'proto "request" event [method:%s, data:%o]',
 				request.method, request.data);
 
@@ -296,12 +296,12 @@ export class RoomClient {
 									rtpParameters,
 									appData: { ...appData, peerId } // Trick.
 								});
-							logger.debug("创建新 consumer ...%o", consumer);
+							console.debug("创建新 consumer ...%o", consumer);
 							// Store in the map.
 							this._consumers.set(consumer.id, consumer);
 
 							// this._remoteAudio.srcObject = new MediaStream(consumer.track);
-							logger.debug("创建新的consumer.track:%o", consumer.track);
+							console.debug("创建新的consumer.track:%o", consumer.track);
 							if (!this.remoteStream) this.remoteStream = new MediaStream();
 							this.remoteStream.addTrack(consumer.track);
 
@@ -324,7 +324,7 @@ export class RoomClient {
 							// 	this._pauseConsumer(consumer);
 						}
 						catch (error) {
-							logger.error('"newConsumer" request failed:%o', error);
+							console.error('"newConsumer" request failed:%o', error);
 
 							throw error;
 						}
@@ -376,23 +376,23 @@ export class RoomClient {
 
 							dataConsumer.on('open', () => {
 								// TODO: 开始文字聊天回调
-								logger.debug('DataConsumer "open" event');
+								console.debug('DataConsumer "open" event');
 							});
 
 							dataConsumer.on('close', () => {
 								// TODO: 结束文字聊天回调
-								logger.debug('DataConsumer "close" event');
+								console.debug('DataConsumer "close" event');
 
 								this._dataConsumers.delete(dataConsumer.id);
 							});
 
 							dataConsumer.on('error', (error) => {
-								logger.error('DataConsumer "error" event:%o', error);
+								console.error('DataConsumer "error" event:%o', error);
 
 							});
 
 							dataConsumer.on('message', (message) => {
-								logger.debug(
+								console.debug(
 									'DataConsumer "message" event [streamId:%d]',
 									dataConsumer.sctpStreamParameters.streamId);
 
@@ -401,7 +401,7 @@ export class RoomClient {
 									const number = view.getUint32();
 
 									if (number == Math.pow(2, 32) - 1) {
-										logger.warn('dataChannelTest finished!');
+										console.warn('dataChannelTest finished!');
 
 										this._nextDataChannelTestNumber = 0;
 
@@ -409,7 +409,7 @@ export class RoomClient {
 									}
 
 									if (number > this._nextDataChannelTestNumber) {
-										logger.warn(
+										console.warn(
 											'dataChannelTest: %s packets missing',
 											number - this._nextDataChannelTestNumber);
 									}
@@ -419,7 +419,7 @@ export class RoomClient {
 									return;
 								}
 								else if (typeof message !== 'string') {
-									logger.warn('ignoring DataConsumer "message" (not a string)');
+									console.warn('ignoring DataConsumer "message" (not a string)');
 
 									return;
 								}
@@ -427,7 +427,7 @@ export class RoomClient {
 								switch (dataConsumer.label) {
 									case 'chat':
 										{
-											logger.debug("data consumer label is chat !");
+											console.debug("data consumer label is chat !");
 
 											this.onChatData(message);
 
@@ -446,7 +446,7 @@ export class RoomClient {
 							accept();
 						}
 						catch (error) {
-							logger.error('"newDataConsumer" request failed:%o', error);
+							console.error('"newDataConsumer" request failed:%o', error);
 							throw error;
 						}
 
@@ -456,7 +456,7 @@ export class RoomClient {
 		});
 
 		this._protoo.on('notification', (notification) => {
-			// logger.debug(
+			// console.debug(
 			// 	'proto "notification" event [method:%s, data:%o]',
 			// 	notification.method, notification.data);
 
@@ -464,7 +464,7 @@ export class RoomClient {
 				case 'getOtherRtpCapabilities':
 					{
 						const rtpCapabilities = notification.data;
-						logger.debug('getOtherRtpCapabilities', rtpCapabilities);
+						console.debug('getOtherRtpCapabilities', rtpCapabilities);
 						break;
 					}
 				case 'producerScore':
@@ -476,8 +476,9 @@ export class RoomClient {
 				case 'newPeer':
 					{
 						const peer = notification.data;
-						this._mediasoupDevice.otherrtpCapabilities = peer.rtpCapabilities;
-						this._startProduce();
+						this._mediasoupDevice.otherRtpCapabilities = peer.rtpCapabilities;
+						console.log('this._mediasoupDevice.otherRtpCapabilities', this._mediasoupDevice.otherRtpCapabilities);
+						this._startProduce(this.localStream);
 						this.handlerActionCallback({
 							action: 'other-connected',
 							info: JSON.stringify(peer)
@@ -504,7 +505,7 @@ export class RoomClient {
 
 				case 'downlinkBwe':
 					{
-						logger.debug('\'downlinkBwe\' event:%o', notification.data);
+						console.debug('\'downlinkBwe\' event:%o', notification.data);
 
 						break;
 					}
@@ -590,7 +591,7 @@ export class RoomClient {
 
 				default:
 					{
-						logger.error(
+						console.error(
 							'unknown protoo notification.method "%s"', notification.method);
 					}
 			}
@@ -601,19 +602,19 @@ export class RoomClient {
 	// 1.现在麦克风在外部打开
 	// 2.和摄像头一起请求,好处可以减少一次授权,
 	// 3.但在手机端媒体未授权时候不知道是摄像头还是麦克风没权限
-	async enableMic() {
+	async enableMic(stream) {
 		if (this._micProducer)
 			return;
 		if (!this._mediasoupDevice.canProduce('audio')) {
-			logger.error('enableMic() | cannot produce audio');
+			console.error('enableMic() | cannot produce audio');
 			return;
 		}
 
 		let track;
 		try {
-			logger.debug('enableMic() | calling getUserMedia()');
+			console.debug('enableMic() | calling getUserMedia()');
 
-			track = this.localStream.getAudioTracks()[0];
+			track = stream.getAudioTracks()[0];
 			this._micProducer = await this._sendTransport.produce(
 				{
 					track,
@@ -638,33 +639,38 @@ export class RoomClient {
 			});
 		}
 		catch (error) {
-			logger.error('enableMic() | failed:%o', error);
+			console.error('enableMic() | failed:%o', error);
 
 			if (track)
 				track.stop();
+			return {
+				action: 'produce',
+				msgCode: 'error',
+				msgText: 'produce Mic error'
+			};
 		}
 	}
 
 	async enableShareMp3(trackMp3, duration) {
-		logger.debug('enableMp3 , duration is ', duration);
+		console.debug('enableMp3 , duration is ', duration);
 
 		// if (this._micProducer) 
 		// 	return;
 
 		if (!this._micProducer) {
-			logger.error('mic disabled');
+			console.error('mic disabled');
 			return;
 		}
 
 		if (!this._mediasoupDevice.canProduce('audio')) {
-			logger.error('enableMic() | cannot produce audio');
+			console.error('enableMic() | cannot produce audio');
 			return;
 		}
 
 		let track;
 
 		try {
-			logger.debug('enableMic() | calling getUserMedia()');
+			console.debug('enableMic() | calling getUserMedia()');
 			let cons = this.makeAudioConstraints();
 			const stream = new MediaStream();
 
@@ -700,7 +706,7 @@ export class RoomClient {
 			});
 		}
 		catch (error) {
-			logger.error('enableMic() | failed:%o', error);
+			console.error('enableMic() | failed:%o', error);
 
 			if (track)
 				track.stop();
@@ -708,14 +714,14 @@ export class RoomClient {
 	}
 
 	async disableMic() {
-		logger.debug('disableMic()');
+		console.debug('disableMic()');
 
 		if (!this._micProducer)
 			return;
 
 		this._micProducer.close();
 		this.localStream.getAudioTracks().forEach((track) => {
-			// logger.log(track);
+			// console.log(track);
 			this.localStream.removeTrack(track);
 		});
 
@@ -724,14 +730,14 @@ export class RoomClient {
 				'closeProducer', { producerId: this._micProducer.id });
 		}
 		catch (error) {
-			logger.debug("this._protoo.request error ...")
+			console.debug("this._protoo.request error ...")
 		}
 
 		this._micProducer = null;
 	}
 
 	async muteMic() {
-		logger.debug('muteMic()');
+		console.debug('muteMic()');
 
 		this._micProducer.pause();
 
@@ -741,12 +747,12 @@ export class RoomClient {
 
 		}
 		catch (error) {
-			logger.error('muteMic() | failed: %o', error);
+			console.error('muteMic() | failed: %o', error);
 		}
 	}
 
 	async unmuteMic() {
-		logger.debug('unmuteMic()');
+		console.debug('unmuteMic()');
 
 		this._micProducer.resume();
 
@@ -755,42 +761,71 @@ export class RoomClient {
 				'resumeProducer', { producerId: this._micProducer.id });
 		}
 		catch (error) {
-			logger.error('unmuteMic() | failed: %o', error);
+			console.error('unmuteMic() | failed: %o', error);
 		}
 	}
 
 	// 开始传输摄像头视频
 	// 1.现在摄像头视频流在外部获取
-	async enableWebcam() {
+	async enableWebcam(stream) {
 		if (this._webcamProducer)
 			return;
 		else if (this._shareProducer)
 			await this.disableShareDesktop();
 
 		if (!this._mediasoupDevice.canProduce('video')) {
-			logger.error('enableWebcam() | cannot produce video');
+			console.error('enableWebcam() | cannot produce video');
 			return;
 		}
 
 		let track;
 
 		try {
-			logger.debug('enableWebcam() | calling getUserMedia()');
+			console.debug('enableWebcam() | calling getUserMedia()');
 
-			track = localStream.getVideoTracks()[0];
+			track = stream.getVideoTracks()[0];
 			// TODO: 获取对端的codec
-			let firstVideoCodec;
-			// const firstVideoCodec = this._mediasoupDevice
-			// 	._extendedRtpCapabilities
-			// 	.codecs
-			// 	.find((c) =>
-			// 		c.kind === 'video' &&
-			// 		c.mimeType.toLowerCase() === 'video/vp8'
-			// 	);
+			var muchCodec;
+			// for (var localCodec of this._mediasoupDevice._extendedRtpCapabilities.codecs) {
+			// 	console.log(localCodec);
+			// 	muchCodec = this._mediasoupDevice
+			// 		.otherRtpCapabilities
+			// 		.rtpCapabilities
+			// 		.codecs
+			// 		.find((c) =>
+			// 			c.kind === 'video' &&
+			// 			c.mimeType.toLowerCase() === localCodec.mimeType.toLowerCase() 
+			// 		);
+			// 		if (muchCodec) break;
+			// }
+			if (this._mediasoupDevice.otherRtpCapabilities) {
+				for (var rmoteCodec of this._mediasoupDevice.otherRtpCapabilities.rtpCapabilities.codecs) {
+					muchCodec = this._mediasoupDevice
+						.rtpCapabilities
+						.codecs
+						.find((c) =>
+							c.kind === 'video' &&
+							c.mimeType.toLowerCase() === rmoteCodec.mimeType.toLowerCase()
+						);
+					if (muchCodec) break;
+				}
+			}
+			else {
+				// No codec information was obtained, but it was normal at the time of recording
+				console.warn('No codec information was obtained, but it was normal at the time of recording');
+			}
+
+			let codec;
+			codec = muchCodec;
+			// if (muchCodec) {
+			// 	codec.kind = muchCodec.kind;
+			// 	codec.mimeType = muchCodec.mimeType;
+			// 	// codec.remoteParameters = muchCodec.remoteParameters;
+			// }
 			this._webcamProducer = await this._sendTransport.produce(
 				{
 					track,
-					firstVideoCodec
+					codec
 				});
 
 			this._webcamProducer.on('transportclose', () => {
@@ -803,23 +838,27 @@ export class RoomClient {
 
 		}
 		catch (error) {
-			logger.error('enableWebcam() | failed:%o', error);
-
+			console.error('enableWebcam() | failed:%o', error);
 			if (track)
 				track.stop();
+			return {
+				action: 'produce',
+				msgCode: 'error',
+				msgText: 'produce Mic error'
+			};
 		}
 
 	}
 
 	async disableWebcam() {
-		logger.debug('disableWebcam()');
+		console.debug('disableWebcam()');
 		if (!this._webcamProducer)
 			return;
 
 		this._webcamProducer.close();
 
 		this.localStream.getVideoTracks().forEach((track) => {
-			// logger.log(track);
+			// console.log(track);
 			this.localStream.removeTrack(track);
 		});
 		try {
@@ -827,14 +866,14 @@ export class RoomClient {
 				'closeProducer', { producerId: this._webcamProducer.id });
 		}
 		catch (error) {
-			logger.debug('disableWebcam() error !');
+			console.debug('disableWebcam() error !');
 		}
 
 		this._webcamProducer = null;
 	}
 
 	async enableShareDesktop() {
-		logger.debug('enableShareDesktop()');
+		console.debug('enableShareDesktop()');
 
 		if (this._shareProducer)
 			return;
@@ -842,7 +881,7 @@ export class RoomClient {
 			await this.disableWebcam();
 
 		if (!this._mediasoupDevice.canProduce('video')) {
-			logger.error('enableShareDesktop() | cannot produce video');
+			console.error('enableShareDesktop() | cannot produce video');
 
 			return;
 		}
@@ -850,7 +889,7 @@ export class RoomClient {
 		let track;
 
 		try {
-			logger.debug('enableShareDesktop() | calling getUserMedia()');
+			console.debug('enableShareDesktop() | calling getUserMedia()');
 
 			const stream = await navigator.mediaDevices.getDisplayMedia(
 				{
@@ -893,7 +932,7 @@ export class RoomClient {
 			});
 		}
 		catch (error) {
-			logger.error('enableShareDesktop() | failed:%o', error);
+			console.error('enableShareDesktop() | failed:%o', error);
 
 			if (error.name !== 'NotAllowedError') {
 
@@ -905,7 +944,7 @@ export class RoomClient {
 	}
 
 	async disableShareDesktop() {
-		logger.debug('disableShareDesktop()');
+		console.debug('disableShareDesktop()');
 
 		if (!this._shareProducer)
 			return;
@@ -918,14 +957,14 @@ export class RoomClient {
 				'closeProducer', { producerId: this._shareProducer.id });
 		}
 		catch (error) {
-			logger.error("disableShareDesktop() error !")
+			console.error("disableShareDesktop() error !")
 		}
 
 		this._shareProducer = null;
 	}
 
 	async enableAudioOnly() {
-		logger.debug('enableAudioOnly()');
+		console.debug('enableAudioOnly()');
 
 		this.disableWebcam();
 
@@ -938,7 +977,7 @@ export class RoomClient {
 	}
 
 	async disableAudioOnly() {
-		logger.debug('disableAudioOnly()');
+		console.debug('disableAudioOnly()');
 
 		if (
 			!this._webcamProducer &&
@@ -957,15 +996,15 @@ export class RoomClient {
 	}
 
 	async muteAudio() {
-		logger.debug('muteAudio()');
+		console.debug('muteAudio()');
 	}
 
 	async unmuteAudio() {
-		logger.debug('unmuteAudio()');
+		console.debug('unmuteAudio()');
 	}
 
 	async restartIce() {
-		logger.debug('restartIce()');
+		console.debug('restartIce()');
 
 		try {
 			if (this._sendTransport) {
@@ -985,12 +1024,12 @@ export class RoomClient {
 			}
 		}
 		catch (error) {
-			logger.error('restartIce() | failed:%o', error);
+			console.error('restartIce() | failed:%o', error);
 		}
 	}
 
 	async setMaxSendingSpatialLayer(spatialLayer) {
-		logger.debug('setMaxSendingSpatialLayer() [spatialLayer:%s]', spatialLayer);
+		console.debug('setMaxSendingSpatialLayer() [spatialLayer:%s]', spatialLayer);
 
 		try {
 			if (this._webcamProducer)
@@ -999,13 +1038,13 @@ export class RoomClient {
 				await this._shareProducer.setMaxSpatialLayer(spatialLayer);
 		}
 		catch (error) {
-			logger.error('setMaxSendingSpatialLayer() | failed:%o', error);
+			console.error('setMaxSendingSpatialLayer() | failed:%o', error);
 
 		}
 	}
 
 	async setConsumerPreferredLayers(consumerId, spatialLayer, temporalLayer) {
-		logger.debug(
+		console.debug(
 			'setConsumerPreferredLayers() [consumerId:%s, spatialLayer:%s, temporalLayer:%s]',
 			consumerId, spatialLayer, temporalLayer);
 
@@ -1015,12 +1054,12 @@ export class RoomClient {
 
 		}
 		catch (error) {
-			logger.error('setConsumerPreferredLayers() | failed:%o', error);
+			console.error('setConsumerPreferredLayers() | failed:%o', error);
 		}
 	}
 
 	async setConsumerPriority(consumerId, priority) {
-		logger.debug(
+		console.debug(
 			'setConsumerPriority() [consumerId:%s, priority:%d]',
 			consumerId, priority);
 
@@ -1028,24 +1067,24 @@ export class RoomClient {
 			await this._protoo.request('setConsumerPriority', { consumerId, priority });
 		}
 		catch (error) {
-			logger.error('setConsumerPriority() | failed:%o', error);
+			console.error('setConsumerPriority() | failed:%o', error);
 		}
 	}
 
 	async requestConsumerKeyFrame(consumerId) {
-		logger.debug('requestConsumerKeyFrame() [consumerId:%s]', consumerId);
+		console.debug('requestConsumerKeyFrame() [consumerId:%s]', consumerId);
 
 		try {
 			await this._protoo.request('requestConsumerKeyFrame', { consumerId });
 
 		}
 		catch (error) {
-			logger.error('requestConsumerKeyFrame() | failed:%o', error);
+			console.error('requestConsumerKeyFrame() | failed:%o', error);
 		}
 	}
 
 	async enableChatDataProducer() {
-		logger.debug('enableChatDataProducer()');
+		console.debug('enableChatDataProducer()');
 
 		if (!this._useDataChannel)
 			return;
@@ -1071,32 +1110,32 @@ export class RoomClient {
 			});
 
 			this._chatDataProducer.on('open', () => {
-				logger.debug('chat DataProducer "open" event');
+				console.debug('chat DataProducer "open" event');
 			});
 
 			this._chatDataProducer.on('close', () => {
-				logger.error('chat DataProducer "close" event');
+				console.error('chat DataProducer "close" event');
 
 				this._chatDataProducer = null;
 			});
 
 			this._chatDataProducer.on('error', (error) => {
-				logger.error('chat DataProducer "error" event:%o', error);
+				console.error('chat DataProducer "error" event:%o', error);
 			});
 
 			this._chatDataProducer.on('bufferedamountlow', () => {
-				logger.debug('chat DataProducer "bufferedamountlow" event');
+				console.debug('chat DataProducer "bufferedamountlow" event');
 			});
 		}
 		catch (error) {
-			logger.error('enableChatDataProducer() | failed:%o', error);
+			console.error('enableChatDataProducer() | failed:%o', error);
 
 			throw error;
 		}
 	}
 
 	async enableBotDataProducer() {
-		logger.debug('enableBotDataProducer()');
+		console.debug('enableBotDataProducer()');
 
 		if (!this._useDataChannel)
 			return;
@@ -1121,32 +1160,32 @@ export class RoomClient {
 			});
 
 			this._botDataProducer.on('open', () => {
-				logger.debug('bot DataProducer "open" event');
+				console.debug('bot DataProducer "open" event');
 			});
 
 			this._botDataProducer.on('close', () => {
-				logger.error('bot DataProducer "close" event');
+				console.error('bot DataProducer "close" event');
 
 				this._botDataProducer = null;
 			});
 
 			this._botDataProducer.on('error', (error) => {
-				logger.error('bot DataProducer "error" event:%o', error);
+				console.error('bot DataProducer "error" event:%o', error);
 			});
 
 			this._botDataProducer.on('bufferedamountlow', () => {
-				logger.debug('bot DataProducer "bufferedamountlow" event');
+				console.debug('bot DataProducer "bufferedamountlow" event');
 			});
 		}
 		catch (error) {
-			logger.error('enableBotDataProducer() | failed:%o', error);
+			console.error('enableBotDataProducer() | failed:%o', error);
 
 			throw error;
 		}
 	}
 
 	async sendChatMessage(text) {
-		logger.debug('sendChatMessage() [text:"%s]', text);
+		console.debug('sendChatMessage() [text:"%s]', text);
 
 		if (!this._chatDataProducer) {
 
@@ -1157,12 +1196,12 @@ export class RoomClient {
 			this._chatDataProducer.send(text);
 		}
 		catch (error) {
-			logger.error('chat DataProducer.send() failed:%o', error);
+			console.error('chat DataProducer.send() failed:%o', error);
 		}
 	}
 
 	async sendBotMessage(text) {
-		logger.debug('sendBotMessage() [text:"%s]', text);
+		console.debug('sendBotMessage() [text:"%s]', text);
 
 		if (!this._botDataProducer) {
 			return;
@@ -1172,12 +1211,12 @@ export class RoomClient {
 			this._botDataProducer.send(text);
 		}
 		catch (error) {
-			logger.error('bot DataProducer.send() failed:%o', error);
+			console.error('bot DataProducer.send() failed:%o', error);
 		}
 	}
 
 	async getSendTransportRemoteStats() {
-		logger.debug('getSendTransportRemoteStats()');
+		console.debug('getSendTransportRemoteStats()');
 
 		if (!this._sendTransport)
 			return;
@@ -1187,7 +1226,7 @@ export class RoomClient {
 	}
 
 	async getRecvTransportRemoteStats() {
-		logger.debug('getRecvTransportRemoteStats()');
+		console.debug('getRecvTransportRemoteStats()');
 
 		if (!this._recvTransport)
 			return;
@@ -1197,7 +1236,7 @@ export class RoomClient {
 	}
 
 	async getAudioRemoteStats() {
-		logger.debug('getAudioRemoteStats()');
+		console.debug('getAudioRemoteStats()');
 
 		if (!this._micProducer)
 			return;
@@ -1207,7 +1246,7 @@ export class RoomClient {
 	}
 
 	async getVideoRemoteStats() {
-		logger.debug('getVideoRemoteStats()');
+		console.debug('getVideoRemoteStats()');
 
 		const producer = this._webcamProducer || this._shareProducer;
 
@@ -1219,7 +1258,7 @@ export class RoomClient {
 	}
 
 	async getConsumerRemoteStats(consumerId) {
-		logger.debug('getConsumerRemoteStats()');
+		console.debug('getConsumerRemoteStats()');
 
 		const consumer = this._consumers.get(consumerId);
 
@@ -1230,7 +1269,7 @@ export class RoomClient {
 	}
 
 	async getChatDataProducerRemoteStats() {
-		logger.debug('getChatDataProducerRemoteStats()');
+		console.debug('getChatDataProducerRemoteStats()');
 
 		const dataProducer = this._chatDataProducer;
 
@@ -1242,7 +1281,7 @@ export class RoomClient {
 	}
 
 	async getBotDataProducerRemoteStats() {
-		logger.debug('getBotDataProducerRemoteStats()');
+		console.debug('getBotDataProducerRemoteStats()');
 
 		const dataProducer = this._botDataProducer;
 
@@ -1254,7 +1293,7 @@ export class RoomClient {
 	}
 
 	async getDataConsumerRemoteStats(dataConsumerId) {
-		logger.debug('getDataConsumerRemoteStats()');
+		console.debug('getDataConsumerRemoteStats()');
 
 		const dataConsumer = this._dataConsumers.get(dataConsumerId);
 
@@ -1265,7 +1304,7 @@ export class RoomClient {
 	}
 
 	async getSendTransportLocalStats() {
-		logger.debug('getSendTransportLocalStats()');
+		console.debug('getSendTransportLocalStats()');
 
 		if (!this._sendTransport)
 			return;
@@ -1274,7 +1313,7 @@ export class RoomClient {
 	}
 
 	async getRecvTransportLocalStats() {
-		logger.debug('getRecvTransportLocalStats()');
+		console.debug('getRecvTransportLocalStats()');
 
 		if (!this._recvTransport)
 			return;
@@ -1283,7 +1322,7 @@ export class RoomClient {
 	}
 
 	async getAudioLocalStats() {
-		logger.debug('getAudioLocalStats()');
+		console.debug('getAudioLocalStats()');
 
 		if (!this._micProducer)
 			return;
@@ -1292,7 +1331,7 @@ export class RoomClient {
 	}
 
 	async getVideoLocalStats() {
-		logger.debug('getVideoLocalStats()');
+		console.debug('getVideoLocalStats()');
 
 		const producer = this._webcamProducer || this._shareProducer;
 
@@ -1312,7 +1351,7 @@ export class RoomClient {
 	}
 
 	async applyNetworkThrottle({ uplink, downlink, rtt, secret }) {
-		logger.debug(
+		console.debug(
 			'applyNetworkThrottle() [uplink:%s, downlink:%s, rtt:%s]',
 			uplink, downlink, rtt);
 
@@ -1322,198 +1361,22 @@ export class RoomClient {
 				{ uplink, downlink, rtt, secret });
 		}
 		catch (error) {
-			logger.error('applyNetworkThrottle() | failed:%o', error);
+			console.error('applyNetworkThrottle() | failed:%o', error);
 		}
 	}
 
 	async resetNetworkThrottle({ silent = false, secret }) {
-		logger.debug('resetNetworkThrottle()');
+		console.debug('resetNetworkThrottle()');
 
 		try {
 			await this._protoo.request('resetNetworkThrottle', { secret });
 		}
 		catch (error) {
 			if (!silent) {
-				logger.error('resetNetworkThrottle() | failed:%o', error);
+				console.error('resetNetworkThrottle() | failed:%o', error);
 			}
 		}
 	}
-	// async _pushMixedStream(stream) {
-	// 	this._mediasoupDevice = new mediasoupClient.Device(
-	// 		{
-	// 			handlerName: this._handlerName
-	// 		});
-	// 	const routerRtpCapabilities = await this._protoo.request('getRouterRtpCapabilities');
-
-	// 	await this._mediasoupDevice.load({ routerRtpCapabilities });
-
-	// 	//推流步骤 1、创建 _sendTransport
-	// 	const transportInfo = await this._protoo.request(
-	// 		'createWebRtcTransport',
-	// 		{
-	// 			forceTcp: this._forceTcp,
-	// 			producing: true,
-	// 			consuming: false,
-	// 			sctpCapabilities: this._useDataChannel
-	// 				? this._mediasoupDevice.sctpCapabilities
-	// 				: undefined
-	// 		});
-
-	// 	const {
-	// 		id,
-	// 		iceParameters,
-	// 		iceCandidates,
-	// 		dtlsParameters,
-	// 		sctpParameters
-	// 	} = transportInfo;
-
-	// 	this._sendTransport = this._mediasoupDevice.createSendTransport(
-	// 		{
-	// 			id,
-	// 			iceParameters,
-	// 			iceCandidates,
-	// 			dtlsParameters,
-	// 			sctpParameters,
-	// 			iceServers: [],
-	// 			proprietaryConstraints: PC_PROPRIETARY_CONSTRAINTS
-	// 		});
-
-	// 	this._sendTransport.on(
-	// 		'connect', ({ dtlsParameters }, callback, errback) => // eslint-disable-line no-shadow
-	// 	{
-	// 		this._protoo.request(
-	// 			'connectWebRtcTransport',
-	// 			{
-	// 				transportId: this._sendTransport.id,
-	// 				dtlsParameters
-	// 			})
-	// 			.then(callback)
-	// 			.catch(errback);
-	// 	});
-
-	// 	this._sendTransport.on(
-	// 		'produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
-	// 			try {
-	// 				// eslint-disable-next-line no-shadow
-	// 				const { id } = await this._protoo.request(
-	// 					'produce',
-	// 					{
-	// 						transportId: this._sendTransport.id,
-	// 						kind,
-	// 						rtpParameters,
-	// 						appData
-	// 					});
-
-	// 				callback({ id });
-	// 			}
-	// 			catch (error) {
-	// 				errback(error);
-	// 			}
-	// 		});
-
-	// 	this._sendTransport.on('producedata', async (
-	// 		{
-	// 			sctpStreamParameters,
-	// 			label,
-	// 			protocol,
-	// 			appData
-	// 		},
-	// 		callback,
-	// 		errback
-	// 	) => {
-	// 		logger.debug(
-	// 			'"producedata" event: [sctpStreamParameters:%o, appData:%o]',
-	// 			sctpStreamParameters, appData);
-
-	// 		try {
-	// 			// eslint-disable-next-line no-shadow
-	// 			const { id } = await this._protoo.request(
-	// 				'produceData',
-	// 				{
-	// 					transportId: this._sendTransport.id,
-	// 					sctpStreamParameters,
-	// 					label,
-	// 					protocol,
-	// 					appData
-	// 				});
-
-	// 			callback({ id });
-	// 		}
-	// 		catch (error) {
-	// 			errback(error);
-	// 		}
-	// 	});
-	// 	const { peers } = await this._protoo.request(
-	// 		'join',
-	// 		{
-	// 			displayName: this._displayName,
-	// 			device: this._device,
-	// 			rtpCapabilities: this._consume
-	// 				? this._mediasoupDevice.rtpCapabilities
-	// 				: undefined,
-	// 			sctpCapabilities: this._useDataChannel && this._consume
-	// 				? this._mediasoupDevice.sctpCapabilities
-	// 				: undefined
-	// 		});
-
-	// 	//推流步骤2 发送音频轨到服务端
-	// 	let audio_track = stream.getAudioTracks()[0];
-
-	// 	this._mixedAudioProducer = await this._sendTransport.produce(
-	// 		{
-	// 			track: audio_track,
-	// 			codecOptions:
-	// 			{
-	// 				opusStereo: 1,
-	// 				opusDtx: 1
-	// 			}
-	// 		});
-
-	// 	this._mixedAudioProducer.on('transportclose', () => {
-	// 		this._mixedAudioProducer = null;
-	// 	});
-
-	// 	this._mixedAudioProducer.on('trackended', () => {
-	// 		this._mixedAudioProducer = null;
-	// 	});
-
-	// 	//推流步骤 3、发送视频轨到服务端
-	// 	let track = stream.getVideoTracks()[0];
-	// 	let encodings;
-	// 	let codec;
-	// 	const codecOptions =
-	// 	{
-	// 		videoGoogleStartBitrate: 1000
-	// 	};
-	// 	codec = this._mediasoupDevice.rtpCapabilities.codecs.find((c) => c.mimeType.toLowerCase() === 'video/h264');
-
-	// 	encodings = WEBCAM_SIMULCAST_ENCODINGS;
-
-	// 	this._mixedVideoProducer = await this._sendTransport.produce(
-	// 		{
-	// 			track,
-	// 			encodings,
-	// 			codecOptions,
-	// 			codec
-	// 		});
-	// 	this.startRecord();
-
-	// 	this._mixedVideoProducer.on('transportclose', () => {
-	// 		this._mixedVideoProducer = null;
-	// 	});
-
-	// 	this._mixedVideoProducer.on('trackended', () => {
-	// 		this._mixedVideoProducer = null;
-	// 	});
-
-
-	// 	this._sendTransport.on('connectionstatechange', (connectionState) => {
-	// 		if (connectionState === 'connected') {
-	// 			this.enableChatDataProducer();
-	// 			this.enableBotDataProducer();
-	// 		}
-	// 	});
-	// }
 
 	async _setRtpCapabilities() {
 		this._mediasoupDevice = new mediasoupClient.Device(
@@ -1643,7 +1506,7 @@ export class RoomClient {
 					callback,
 					errback
 				) => {
-					logger.debug(
+					console.debug(
 						'"producedata" event: [sctpStreamParameters:%o, appData:%o]',
 						sctpStreamParameters, appData);
 
@@ -1668,7 +1531,7 @@ export class RoomClient {
 			}
 
 			/*
-				logger.debug(
+				console.debug(
 				'proto "notification" event [method:%s, data:%o]',
 				notification.method, notification.data);
 			*/
@@ -1707,7 +1570,7 @@ export class RoomClient {
 				this._recvTransport.on(
 					'connect', ({ dtlsParameters }, callback, errback) => // eslint-disable-line no-shadow
 				{
-					logger.debug("_recvTransport.on ('connect') callback: %s", callback);
+					console.debug("_recvTransport.on ('connect') callback: %s", callback);
 					this._protoo.request(
 						'connectWebRtcTransport',
 						{
@@ -1724,7 +1587,7 @@ export class RoomClient {
 				{
 					displayName: this._displayName,
 					device: this._device,
-					rtpCapabilities: this._mediasoupDevice._extendedRtpCapabilities,
+					rtpCapabilities: this._mediasoupDevice.rtpCapabilities,
 					sctpCapabilities: this._useDataChannel && this._consume
 						? this._mediasoupDevice.sctpCapabilities
 						: undefined
@@ -1733,36 +1596,42 @@ export class RoomClient {
 			// Join now into the room.
 			// NOTE: Don't send our RTP capabilities if we don't want to consume.
 			for (const peer of peers) {
-				logger.debug("这是当前的peer: %o", peer);
+				console.debug("这是当前的peer: %o", peer);
 			}
+			// 需要媒体协商,所以要等到对方连接上来之后才能传输
+			// this._startProduce();
+
+			console.log('joided room');
 		}
 		catch (error) {
-			logger.error('_joinRoom() failed:%o', error);
+			console.error('_joinRoom() failed:%o', error);
 
 			this.close();
 		}
 	}
 
-	async _startProduce() {
+	async _startProduce(stream, produceCallbk) {
 		// Enable mic/webcam.
 		// 为了让媒体能够互相交换编解码器,这一步需要在拿到编解码器之后才调用
-		// 计划在newPeers中交换编解码信息,这种方式会减少建立连接的时间但是时序不好控制
-		// 可能对方已经连接上来但和服务器的连接尚未建立
+		// 计划在newPeers中交换编解码信息,这种方式会减少建立连接的时间
+		let recordMsg;
 		if (this._produce) {
-
-			await this.enableMic();
-			await this.enableWebcam();
+			recordMsg = await this.enableMic(stream);
+			recordMsg = await this.enableWebcam(stream);
 
 			await this.enableChatDataProducer();
 
 			this._sendTransport.on('connectionstatechange', (connectionState) => {
-				logger.debug("连接状态改变! :%s", connectionState);
+				console.debug("连接状态改变! :%s", connectionState);
 				if (connectionState === 'connected') {
 					this.enableChatDataProducer();
 					this.enableBotDataProducer();
 				}
 			});
 		}
+
+		if (produceCallbk)
+			produceCallbk(recordMsg);
 	}
 
 	async _joinRoom() {
@@ -1780,12 +1649,12 @@ export class RoomClient {
 
 	_getWebcamType(device) {
 		if (/(back|rear)/i.test(device.label)) {
-			logger.debug('_getWebcamType() | it seems to be a back camera');
+			console.debug('_getWebcamType() | it seems to be a back camera');
 
 			return 'back';
 		}
 		else {
-			logger.debug('_getWebcamType() | it seems to be a front camera');
+			console.debug('_getWebcamType() | it seems to be a front camera');
 
 			return 'front';
 		}
@@ -1801,7 +1670,7 @@ export class RoomClient {
 			consumer.pause();
 		}
 		catch (error) {
-			logger.error('_pauseConsumer() | failed:%o', error);
+			console.error('_pauseConsumer() | failed:%o', error);
 		}
 	}
 
@@ -1815,13 +1684,13 @@ export class RoomClient {
 			consumer.resume();
 		}
 		catch (error) {
-			logger.error('_resumeConsumer() | failed:%o', error);
+			console.error('_resumeConsumer() | failed:%o', error);
 		}
 	}
 
 	getMixedStream() {
 		if (!this.localStream || !this.remoteStream) {
-			logger.error("请确保双向视频已经接通！");
+			console.error("请确保双向视频已经接通！");
 			return;
 		}
 		if (this.mixedStream) {
@@ -1849,13 +1718,13 @@ export class RoomClient {
 		let constraints = {};
 		let audio = {};
 		if (!navigator.mediaDevices || !navigator.mediaDevices.getSupportedConstraints) {
-			logger.debug('the getSupportedConstraints is not supported!');
+			console.debug('the getSupportedConstraints is not supported!');
 			audio = true;
 		}
 		else {
 			let supportedConstraints = navigator.mediaDevices.getSupportedConstraints();
 			// add audio constraints
-			// logger.debug(supportedConstraints);
+			// console.debug(supportedConstraints);
 			if (supportedConstraints.noiseSuppression) {
 				audio.noiseSuppression = true;  // 降噪
 				audio.echoCancellation = true;  //回音消除
@@ -1874,13 +1743,13 @@ export class RoomClient {
 		let constraints = {};
 		let video = {};
 		if (!navigator.mediaDevices || !navigator.mediaDevices.getSupportedConstraints) {
-			logger.debug('the getSupportedConstraints is not supported!');
+			console.debug('the getSupportedConstraints is not supported!');
 			video = true;
 		}
 		else {
 			let supportedConstraints = navigator.mediaDevices.getSupportedConstraints();
 			// add audio constraints
-			// logger.debug(supportedConstraints);
+			// console.debug(supportedConstraints);
 			if (supportedConstraints.autoGainControl) {
 				// audio.autoGainControl = true; // 自增益
 			}

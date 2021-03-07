@@ -1,30 +1,42 @@
 const btnRecordServer = document.getElementById('recordServer');
 
-function startRecordServer(){
-    const mixedStream = roomClient.getMixedStream();
-    // videoMixed.srcObject = mixedStream;
 
-    // console.log(localStream.getVideoTracks()[0].getSettings());
-    // console.log(remoteStream.getVideoTracks()[0].getSettings());
-    // console.log(mixedStream.getVideoTracks()[0].getSettings());
+const handlerRecordSuccessfulCallback = (msg) => {
+    console.log('handlerRecordSuccessfulCallback',msg);
+}
+
+const handlerRecordActionCallback = (msg) => {
+    console.log('handlerRecordActionCallback',msg);
+}
+
+async function startRecordServer(stream){
+    // const mixedStream = roomClient.getMixedStream();
 
     const roomId = '12345678';
     const roomName = 'record';
     let storeCallback = new Object();
-    storeCallback.handlerSuccessfulCallback = handlerSuccessfulCallback;
-    storeCallback.handlerActionCallback = handlerActionCallback;
+    storeCallback.handlerSuccessfulCallback = handlerRecordSuccessfulCallback;
+    storeCallback.handlerActionCallback = handlerRecordActionCallback;
     recordClient = new kingchat.RoomClient({
         roomId: roomId,
         displayName: roomName,
         protooUrl: g_protooUrl,
-        mixedStream: mixedStream,
         forceTcp: true,
         produce: true,
         consume: false,
         datachannel: false,
         storeCallback: storeCallback
     });
-    recordClient.join();
+    await recordClient.join( () => {
+
+        console.log('start produce');
+        recordClient._startProduce( stream ,(recordMsg) => {
+            console.log('start record',recordMsg);
+            recordClient.startRecord( (recordMsg) => {
+
+            });    
+        });
+    });
 }
 
 function stopRecordServer(){
@@ -34,17 +46,21 @@ function stopRecordServer(){
 
         // videoMixed.src = window.URL.createObjectURL(getFileName);
         videoMixed.srcObject = null;
+        videoMixed.oncanplay = () => {
+            videoMixed.play();
+        }
         videoMixed.src = getFileName;
         videoMixed.controls = true;
-        videoMixed.play();
+
+        recordClient.close();
     });
 }
 
 btnRecordServer.onclick = async () => {
-
     if(btnRecordServer.textContent === '服务器录制') {
         btnRecordServer.textContent = '停止';
-        startRecordServer();
+        let stream = roomClient.getMixedStream();
+        startRecordServer(stream);
     }
     else {
         btnRecordServer.textContent = '服务器录制';
@@ -53,13 +69,18 @@ btnRecordServer.onclick = async () => {
 }
 
 const btnRecordServerSingle = document.getElementById('recordServerSingle');
-btnRecordServerSingle.onclick = ()=> {
+btnRecordServerSingle.onclick = async ()=> {
     if (btnRecordServerSingle.textContent === '服务器录制单向') {
-        roomClient.startRecord();
+        let stream = await getLocalStream();
+        videoLocal.oncanplay= () => {
+            videoLocal.play();
+        };
+        videoLocal.srcObject = stream;
+        startRecordServer(stream);
         btnRecordServerSingle.textContent = '结束';
     }
     else {
-        roomClient.stopRecord();
+        stopRecordServer();
         btnRecordServerSingle.textContent = '服务器录制单向';
     }
 }
