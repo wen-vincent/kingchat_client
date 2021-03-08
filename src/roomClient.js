@@ -203,6 +203,11 @@ export class RoomClient {
 				roomId: this.roomId
 			});
 		console.debug('startRecordRes', startRecordRes);
+		if (recordCallbk) recordCallbk({
+			action: 'record',
+			msgCode: 'succeed',
+			msgText: 'start record'
+		});
 	}
 
 	async stopRecord(callback) {
@@ -1409,8 +1414,8 @@ export class RoomClient {
 		// 2.双向视频此处应该为对方能力,但是目前双向视频的码率等设置还在服务上
 		await this._mediasoupDevice.load({ routerRtpCapabilities });
 
-		await this._protoo.request(
-			'setRtpCapabilities', { rtpCapabilities: this._mediasoupDevice._extendedRtpCapabilities });
+		// await this._protoo.request(
+		// 	'setRtpCapabilities', { rtpCapabilities: this._mediasoupDevice._extendedRtpCapabilities });
 
 	}
 

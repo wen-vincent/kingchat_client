@@ -12,7 +12,7 @@ const handlerRecordActionCallback = (msg) => {
 async function startRecordServer(stream){
     // const mixedStream = roomClient.getMixedStream();
 
-    const roomId = '12345678';
+    const roomId = '123456789';
     const roomName = 'record';
     let storeCallback = new Object();
     storeCallback.handlerSuccessfulCallback = handlerRecordSuccessfulCallback;
@@ -33,7 +33,7 @@ async function startRecordServer(stream){
         recordClient._startProduce( stream ,(recordMsg) => {
             console.log('start record',recordMsg);
             recordClient.startRecord( (recordMsg) => {
-
+                console.log('start record',recordMsg);
             });    
         });
     });
@@ -43,6 +43,7 @@ function stopRecordServer(){
     console.log('stop record!');
     recordClient.stopRecord((res)=>{
         const getFileName = 'https://pretke.kingwelan.com/file_service/record/'+ res.fileName;
+        console.log(getFileName);
 
         // videoMixed.src = window.URL.createObjectURL(getFileName);
         videoMixed.srcObject = null;
