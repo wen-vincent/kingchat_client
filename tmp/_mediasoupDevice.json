@@ -1,0 +1,270 @@
+{
+    "codecs": [
+        {
+            "mimeType": "audio/opus",
+            "kind": "audio",
+            "clockRate": 48000,
+            "channels": 2,
+            "localPayloadType": 111,
+            "remotePayloadType": 100,
+            "localParameters": {
+                "minptime": 10,
+                "useinbandfec": 1
+            },
+            "remoteParameters": {},
+            "rtcpFeedback": [
+                {
+                    "type": "transport-cc",
+                    "parameter": ""
+                }
+            ]
+        },
+        {
+            "mimeType": "video/H264",
+            "kind": "video",
+            "clockRate": 90000,
+            "localPayloadType": 125,
+            "localRtxPayloadType": 107,
+            "remotePayloadType": 101,
+            "remoteRtxPayloadType": 102,
+            "localParameters": {
+                "level-asymmetry-allowed": 1,
+                "packetization-mode": 1,
+                "profile-level-id": "42e01f"
+            },
+            "remoteParameters": {
+                "packetization-mode": 1,
+                "level-asymmetry-allowed": 1,
+                "profile-level-id": "42e01f",
+                "x-google-start-bitrate": 320,
+                "x-google-min-bitrate": 320,
+                "x-google-max-bitrate": 400
+            },
+            "rtcpFeedback": [
+                {
+                    "type": "goog-remb",
+                    "parameter": ""
+                },
+                {
+                    "type": "transport-cc",
+                    "parameter": ""
+                },
+                {
+                    "type": "ccm",
+                    "parameter": "fir"
+                },
+                {
+                    "type": "nack",
+                    "parameter": ""
+                },
+                {
+                    "type": "nack",
+                    "parameter": "pli"
+                }
+            ]
+        },
+        {
+            "mimeType": "video/H264",
+            "kind": "video",
+            "clockRate": 90000,
+            "localPayloadType": 124,
+            "localRtxPayloadType": 119,
+            "remotePayloadType": 103,
+            "remoteRtxPayloadType": 104,
+            "localParameters": {
+                "level-asymmetry-allowed": 1,
+                "packetization-mode": 1,
+                "profile-level-id": "4d001f"
+            },
+            "remoteParameters": {
+                "packetization-mode": 1,
+                "level-asymmetry-allowed": 1,
+                "profile-level-id": "4d001f",
+                "x-google-start-bitrate": 320,
+                "x-google-min-bitrate": 320,
+                "x-google-max-bitrate": 400
+            },
+            "rtcpFeedback": [
+                {
+                    "type": "goog-remb",
+                    "parameter": ""
+                },
+                {
+                    "type": "transport-cc",
+                    "parameter": ""
+                },
+                {
+                    "type": "ccm",
+                    "parameter": "fir"
+                },
+                {
+                    "type": "nack",
+                    "parameter": ""
+                },
+                {
+                    "type": "nack",
+                    "parameter": "pli"
+                }
+            ]
+        },
+        {
+            "mimeType": "video/VP8",
+            "kind": "video",
+            "clockRate": 90000,
+            "localPayloadType": 96,
+            "localRtxPayloadType": 97,
+            "remotePayloadType": 105,
+            "remoteRtxPayloadType": 106,
+            "localParameters": {},
+            "remoteParameters": {
+                "x-google-start-bitrate": 320,
+                "x-google-min-bitrate": 320,
+                "x-google-max-bitrate": 400
+            },
+            "rtcpFeedback": [
+                {
+                    "type": "goog-remb",
+                    "parameter": ""
+                },
+                {
+                    "type": "transport-cc",
+                    "parameter": ""
+                },
+                {
+                    "type": "ccm",
+                    "parameter": "fir"
+                },
+                {
+                    "type": "nack",
+                    "parameter": ""
+                },
+                {
+                    "type": "nack",
+                    "parameter": "pli"
+                }
+            ]
+        },
+        {
+            "mimeType": "video/VP9",
+            "kind": "video",
+            "clockRate": 90000,
+            "localPayloadType": 100,
+            "localRtxPayloadType": 101,
+            "remotePayloadType": 107,
+            "remoteRtxPayloadType": 108,
+            "localParameters": {
+                "profile-id": 2
+            },
+            "remoteParameters": {
+                "profile-id": 2,
+                "x-google-start-bitrate": 320,
+                "x-google-min-bitrate": 320,
+                "x-google-max-bitrate": 400
+            },
+            "rtcpFeedback": [
+                {
+                    "type": "goog-remb",
+                    "parameter": ""
+                },
+                {
+                    "type": "transport-cc",
+                    "parameter": ""
+                },
+                {
+                    "type": "ccm",
+                    "parameter": "fir"
+                },
+                {
+                    "type": "nack",
+                    "parameter": ""
+                },
+                {
+                    "type": "nack",
+                    "parameter": "pli"
+                }
+            ]
+        }
+    ],
+    "headerExtensions": [
+        {
+            "kind": "audio",
+            "uri": "urn:ietf:params:rtp-hdrext:sdes:mid",
+            "sendId": 4,
+            "recvId": 1,
+            "encrypt": false,
+            "direction": "sendrecv"
+        },
+        {
+            "kind": "video",
+            "uri": "urn:ietf:params:rtp-hdrext:sdes:mid",
+            "sendId": 4,
+            "recvId": 1,
+            "encrypt": false,
+            "direction": "sendrecv"
+        },
+        {
+            "kind": "video",
+            "uri": "urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id",
+            "sendId": 5,
+            "recvId": 2,
+            "encrypt": false,
+            "direction": "sendonly"
+        },
+        {
+            "kind": "video",
+            "uri": "urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id",
+            "sendId": 6,
+            "recvId": 3,
+            "encrypt": false,
+            "direction": "sendonly"
+        },
+        {
+            "kind": "audio",
+            "uri": "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
+            "sendId": 2,
+            "recvId": 4,
+            "encrypt": false,
+            "direction": "sendrecv"
+        },
+        {
+            "kind": "video",
+            "uri": "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
+            "sendId": 2,
+            "recvId": 4,
+            "encrypt": false,
+            "direction": "sendrecv"
+        },
+        {
+            "kind": "audio",
+            "uri": "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
+            "sendId": 3,
+            "recvId": 5,
+            "encrypt": false,
+            "direction": "sendonly"
+        },
+        {
+            "kind": "video",
+            "uri": "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
+            "sendId": 3,
+            "recvId": 5,
+            "encrypt": false,
+            "direction": "sendrecv"
+        },
+        {
+            "kind": "audio",
+            "uri": "urn:ietf:params:rtp-hdrext:ssrc-audio-level",
+            "sendId": 1,
+            "recvId": 10,
+            "encrypt": false,
+            "direction": "sendrecv"
+        },
+        {
+            "kind": "video",
+            "uri": "urn:ietf:params:rtp-hdrext:toffset",
+            "sendId": 14,
+            "recvId": 12,
+            "encrypt": false,
+            "direction": "sendrecv"
+        }
+    ]
+}
