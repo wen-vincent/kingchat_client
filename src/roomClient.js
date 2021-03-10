@@ -1,4 +1,4 @@
-import('@babel/polyfill');
+// import('@babel/polyfill');
 import('adapterjs');
 
 // import('../node_modules/adapterjs/publish/adapter.screenshare.min')
@@ -167,6 +167,7 @@ export class RoomClient {
 		this.handlerSuccessfulCallback = storeCallback.handlerSuccessfulCallback;
 		this.handlerActionCallback = storeCallback.handlerActionCallback;
 		this.mixedStream = mixedStream;
+		this._protooTransport = null;
 	}
 
 	close() {
@@ -178,7 +179,14 @@ export class RoomClient {
 		console.debug('close()');
 
 		// Close protoo Peer
-		this._protoo.close();
+		if (this._protoo) {
+			this._protoo.close();
+			this._protoo = null;
+		}
+		if (this._protooTransport) {
+			this._protooTransport.close();
+			this._protooTransport = null;
+		}
 
 		// Close mediasoup Transports.
 		if (this._sendTransport)
@@ -191,7 +199,7 @@ export class RoomClient {
 		this.disableWebcam();
 	}
 
-	async startRecord(recordCallbk) {
+	async startRecord(recordCallbk,upload,fileService) {
 		if (!this._protoo) {
 			console.warn("There is no websocket connection !");
 			return;
@@ -200,7 +208,9 @@ export class RoomClient {
 		const startRecordRes = await this._protoo.request(
 			'start-record',
 			{
-				roomId: this.roomId
+				roomId: this.roomId,
+				upload: upload?upload:false,
+				fileService: fileService?fileService:undefined
 			});
 		console.debug('startRecordRes', startRecordRes);
 		if (recordCallbk) recordCallbk({
@@ -233,17 +243,30 @@ export class RoomClient {
 		// console.debug("_protooUrl: %s", this._protooUrl);
 		// let opt =  RetryOperation.operation();
 		// TODO: 连接出错误后显示错误原因
-		const protooTransport = new protooClient.WebSocketTransport(this._protooUrl);
+		if (!this._protooTransport) {
+			this._protooTransport = new protooClient.WebSocketTransport(this._protooUrl);
+		}
+		this._protooTransport.on('open', () => {
+			console.log('连接服务器成功');
+		});
+		this._protooTransport.on('failed', (currentAttempt) => {
+			console.log('建立连接失败,正在重连:',currentAttempt);
+			if(currentAttempt >= 3) {
+				joinedcallbk({action:'err',msg:'多次连接失败,已关闭服务器连接'});
+				this._protooTransport.close();
+				this._protooTransport = null;
+			}
+		});
 
-		this._protoo = new protooClient.Peer(protooTransport);
+		this._protoo = new protooClient.Peer(this._protooTransport);
 		this._protoo.on('open', async () => {
 			await this._joinRoom();
-			joinedcallbk();
+			joinedcallbk({action:'succ',msg:'加入房间成功'});
 		});
 
 		this._protoo.on('failed', () => {
 			console.error("protoo websocket failed !")
-			joinedcallbk();
+			joinedcallbk({action:'err',msg:'加入房间失败'});
 		});
 
 		this._protoo.on('disconnected', () => {
@@ -1621,6 +1644,7 @@ export class RoomClient {
 		// 计划在newPeers中交换编解码信息,这种方式会减少建立连接的时间
 		let recordMsg;
 		if (this._produce) {
+			console.log('_startProduce');
 			recordMsg = await this.enableMic(stream);
 			recordMsg = await this.enableWebcam(stream);
 

@@ -15,7 +15,7 @@ module.exports = {
 	//devtool: 'cheap-source-map',
 	devServer: {
 		disableHostCheck: true
-	},
+	}
 	// module: {
 	// 	rules: [
 	// 		{
